@@ -1183,13 +1183,10 @@ Content-Type: application/json
 
 ### 5. 获取歌词
 
-**端点:** `GET /api/music/lyrics/{id}?t={时间戳}`
+**端点:** `GET /api/music/lyrics/{id}`
 
 **路径参数:**
 - `id`: 音乐 ID
-
-**查询参数:**
-- `t`: 时间戳（可选，用于避免缓存）
 
 **响应示例:**
 ```json
@@ -1202,12 +1199,10 @@ Content-Type: application/json
 
 **说明:**
 - 此 API **无需登录**即可访问
-- 获取歌词时会自动增加该音乐的播放次数（play_count + 1）
-- 建议在请求时添加时间戳参数以避免浏览器缓存
 
 ### 6. 获取播放次数排行榜
 
-**端点:** `GET /api/music/ranking?t={时间戳}`
+**端点:** `GET /api/music/ranking`
 
 **无需登录**
 
@@ -1274,13 +1269,12 @@ async function getMusicRanking(limit = 200) {
 
 ### 7. 获取最新上传音乐
 
-**端点:** `GET /api/music/latest?t={时间戳}`
+**端点:** `GET /api/music/latest`
 
 **无需登录**
 
 **查询参数:**
 - `limit`: 返回数量（可选，默认为 300，最大为 500）
-- `t`: 时间戳（可选，用于避免 CDN 缓存）
 
 **响应示例:**
 ```json
@@ -1294,8 +1288,6 @@ async function getMusicRanking(limit = 200) {
       "artist": "艺术家",
       "album": "专辑",
       "duration": 180,
-      "coverPath": "/path/to/cover.jpg",
-      "coverUrl": "/path/to/cover.jpg",
       "language": "中文",
       "tags": "流行",
       "fileFormat": "mp3",
@@ -1326,8 +1318,7 @@ async function getMusicRanking(limit = 200) {
 **前端集成示例:**
 ```javascript
 async function getLatestMusic(limit = 300) {
-  const timestamp = Date.now(); // 添加时间戳避免 CDN 缓存
-  const response = await fetch(`https://music.cnmsb.xin/api/music/latest?limit=${limit}&t=${timestamp}`, {
+  const response = await fetch(`https://music.cnmsb.xin/api/music/latest?limit=${limit}`, {
     method: 'GET'
   });
 

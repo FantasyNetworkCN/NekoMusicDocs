@@ -1185,13 +1185,10 @@ Content-Type: application/json
 
 ### 5. Get Lyrics
 
-**Endpoint:** `GET /api/music/lyrics/{id}?t={timestamp}`
+**Endpoint:** `GET /api/music/lyrics/{id}`
 
 **Path Parameters:**
 - `id`: Music ID
-
-**Query Parameters:**
-- `t`: Timestamp (optional, to avoid caching)
 
 **Response Example:**
 ```json
@@ -1204,12 +1201,10 @@ Content-Type: application/json
 
 **Notes:**
 - This API **does not require login** to access
-- Getting lyrics automatically increases the play count of the music (play_count + 1)
-- It's recommended to add a timestamp parameter when requesting to avoid browser caching
 
 ### 6. Get Play Count Ranking
 
-**Endpoint:** `GET /api/music/ranking?t={timestamp}`
+**Endpoint:** `GET /api/music/ranking`
 
 **No login required**
 
@@ -1228,9 +1223,7 @@ Content-Type: application/json
       "artist": "Artist",
       "album": "Album",
       "duration": 180,
-      "coverPath": "/path/to/cover.jpg",
-      "coverUrl": "/path/to/cover.jpg",
-      "language": "Chinese",
+      "language": "中文",
       "tags": "Pop",
       "playCount": 100
     }
@@ -1276,13 +1269,12 @@ async function getMusicRanking(limit = 200) {
 
 ### 7. Get Latest Uploaded Music
 
-**Endpoint:** `GET /api/music/latest?t={timestamp}`
+**Endpoint:** `GET /api/music/latest`
 
 **No login required**
 
 **Query Parameters:**
 - `limit`: Number of results (optional, default is 300, maximum is 500)
-- `t`: Timestamp (optional, to avoid CDN caching)
 
 **Response Example:**
 ```json
@@ -1296,9 +1288,7 @@ async function getMusicRanking(limit = 200) {
       "artist": "Artist",
       "album": "Album",
       "duration": 180,
-      "coverPath": "/path/to/cover.jpg",
-      "coverUrl": "/path/to/cover.jpg",
-      "language": "Chinese",
+      "language": "中文",
       "tags": "Pop",
       "fileFormat": "mp3",
       "createdAt": 1704067200000
@@ -1328,8 +1318,7 @@ async function getMusicRanking(limit = 200) {
 **Frontend Integration Example:**
 ```javascript
 async function getLatestMusic(limit = 300) {
-  const timestamp = Date.now(); // Add timestamp to avoid CDN caching
-  const response = await fetch(`https://music.cnmsb.xin/api/music/latest?limit=${limit}&t=${timestamp}`, {
+  const response = await fetch(`https://music.cnmsb.xin/api/music/latest?limit=${limit}`, {
     method: 'GET'
   });
 
