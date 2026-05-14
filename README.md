@@ -1034,26 +1034,59 @@ Content-Type: application/json
 ```
 
 **请求体:**
+
+`playlistId` 必填。音乐 ID 二选一或可同时使用（会合并后按顺序 **去重** 再依次移除）：
+
+- `musicId`：单个音乐 ID（与旧版客户端兼容）
+- `musicIds`：整数数组，一次移除多首
+
+至少需在合并去重后得到 **至少一个** 音乐 ID，否则返回 `400`。
+
 ```json
 {
-  "playlistId": 1,  // 歌单 ID (必填)
-  "musicId": 1      // 音乐 ID (必填)
+  "playlistId": 1,
+  "musicId": 1
 }
 ```
 
-**响应示例（成功）:**
+批量移除示例：
+
+```json
+{
+  "playlistId": 1,
+  "musicIds": [1, 2, 3]
+}
+```
+
+也可同时传 `musicId` 与 `musicIds`（重复 ID 只会移除一次）。
+
+**响应示例（成功，单首）:**
 ```json
 {
   "success": true,
+  "removedCount": 1,
   "message": "音乐从歌单中移除成功"
 }
 ```
 
-**响应示例（失败）:**
+**响应示例（成功，多首）:**
+```json
+{
+  "success": true,
+  "removedCount": 3,
+  "message": "已从歌单中移除 3 首音乐"
+}
+```
+
+**响应示例（部分失败，HTTP 400）:**  
+当请求中部分 ID 不在歌单中或移除失败时，已成功移除的仍会生效；响应包含未成功的 ID 列表。
+
 ```json
 {
   "success": false,
-  "message": "音乐从歌单中移除失败或音乐不存在于歌单中"
+  "removedCount": 1,
+  "failedMusicIds": [99, 100],
+  "message": "部分音乐未能从歌单中移除（不在歌单中或移除失败），失败数量: 2"
 }
 ```
 
@@ -1067,8 +1100,9 @@ Content-Type: application/json
 
 **说明:**
 - 只有歌单的创建者才能从歌单中移除音乐
-- 如果音乐不存在于歌单中，会返回失败
-- 移除音乐后会自动重新排序剩余音乐的 position（删除位置之后的position - 1）
+- 若传入的某个 ID 不在歌单中或移除失败，接口返回 `400`，`failedMusicIds` 列出失败的 ID；此前已成功移除的曲目不会回滚
+- `musicIds` 必须是 JSON 数组，否则会返回 `400` 及相应提示
+- 移除音乐后会自动重新排序剩余音乐的 position（删除位置之后的 position - 1）；多首时按去重后的顺序逐首移除，与逐次调用单首移除效果一致
 - 移除成功后会自动更新歌单的 `musicCount` 字段
 
 ---
@@ -1694,9 +1728,12 @@ async function addMusicToPlaylist(playlistId, musicId) {
 
 ### 从歌单中移除音乐
 
+`musicIds` 可为单个数字或数字数组；请求体使用 `musicIds` 数组与后端批量语义一致（也可继续只传 `musicId`）。
+
 ```javascript
-async function removeMusicFromPlaylist(playlistId, musicId) {
+async function removeMusicFromPlaylist(playlistId, musicIds) {
   const token = localStorage.getItem('userToken');
+  const ids = Array.isArray(musicIds) ? musicIds : [musicIds];
 
   const response = await fetch('https://music.cnmsb.xin/api/user/playlist/music/remove', {
     method: 'POST',
@@ -1706,18 +1743,19 @@ async function removeMusicFromPlaylist(playlistId, musicId) {
     },
     body: JSON.stringify({
       playlistId: playlistId,
-      musicId: musicId
+      musicIds: ids
     })
   });
 
   const data = await response.json();
   if (data.success) {
-    console.log('音乐从歌单中移除成功');
+    console.log(data.message || '音乐从歌单中移除成功', data.removedCount != null ? `removedCount=${data.removedCount}` : '');
     // 可以在这里刷新歌单内容
   } else if (data.message === '无权限修改此歌单') {
     alert('您没有权限修改此歌单');
-  } else if (data.message.includes('音乐不存在于歌单中')) {
-    alert('音乐不存在于歌单中');
+  } else if (Array.isArray(data.failedMusicIds) && data.failedMusicIds.length) {
+    console.error('部分音乐未能移除', data.failedMusicIds, 'removedCount=', data.removedCount);
+    alert(data.message || '部分音乐未能从歌单中移除');
   } else {
     console.error('音乐从歌单中移除失败:', data.message);
   }

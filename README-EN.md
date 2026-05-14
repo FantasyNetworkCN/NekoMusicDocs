@@ -1035,26 +1035,61 @@ Content-Type: application/json
 ```
 
 **Request Body:**
+
+`playlistId` is required. Music IDs can be supplied in either or both of the following ways (values are **merged**, then **deduplicated** while preserving first-seen order, then removed one by one):
+
+- `musicId`: a single music ID (backward compatible with older clients)
+- `musicIds`: an array of integers to remove multiple tracks in one request
+
+After merge and deduplication there must be **at least one** music ID, otherwise the API returns `400`.
+
 ```json
 {
-  "playlistId": 1,  // Playlist ID (required)
-  "musicId": 1      // Music ID (required)
+  "playlistId": 1,
+  "musicId": 1
 }
 ```
 
-**Response Example (Success):**
+Batch example:
+
+```json
+{
+  "playlistId": 1,
+  "musicIds": [1, 2, 3]
+}
+```
+
+You may send both `musicId` and `musicIds`; duplicate IDs are only removed once.
+
+**Response Example (Success, single track):**
 ```json
 {
   "success": true,
-  "message": "Music removed from playlist successfully"
+  "removedCount": 1,
+  "message": "音乐从歌单中移除成功"
 }
 ```
 
-**Response Example (Failure):**
+**Response Example (Success, multiple tracks):**
+```json
+{
+  "success": true,
+  "removedCount": 3,
+  "message": "已从歌单中移除 3 首音乐"
+}
+```
+
+*(The `message` field is returned in Chinese by the server.)*
+
+**Response Example (Partial failure, HTTP 400):**  
+If some IDs are not in the playlist or cannot be removed, tracks already removed in the same request stay removed. The response lists IDs that failed.
+
 ```json
 {
   "success": false,
-  "message": "Failed to remove music from playlist or music does not exist in playlist"
+  "removedCount": 1,
+  "failedMusicIds": [99, 100],
+  "message": "部分音乐未能从歌单中移除（不在歌单中或移除失败），失败数量: 2"
 }
 ```
 
@@ -1062,15 +1097,16 @@ Content-Type: application/json
 ```json
 {
   "success": false,
-  "message": "No permission to modify this playlist"
+  "message": "无权限修改此歌单"
 }
 ```
 
 **Notes:**
 - Only the playlist creator can remove music from the playlist
-- If music does not exist in the playlist, it will return failure
-- After removing music, the position of remaining music is automatically reordered (positions after the deletion position - 1)
-- After successful removal, the playlist's `musicCount` field is automatically updated
+- If any requested ID is not in the playlist or removal fails, the API returns `400` with `failedMusicIds`; removals that already succeeded in the same request are **not** rolled back
+- `musicIds` must be a JSON array; otherwise `400` is returned with an error message
+- After removal, remaining tracks are reordered (`position` of items after the deleted slot is decremented). For multiple IDs, removal runs in deduplicated order, equivalent to calling single-track removal repeatedly
+- After successful removal(s), the playlist's `musicCount` field is updated automatically
 
 ---
 
@@ -1694,9 +1730,12 @@ async function addMusicToPlaylist(playlistId, musicId) {
 
 ### Remove Music from Playlist
 
+Use a `musicIds` array for batch removal (you can still send a single `musicId` for backward compatibility). The example below normalizes one or many IDs into an array.
+
 ```javascript
-async function removeMusicFromPlaylist(playlistId, musicId) {
+async function removeMusicFromPlaylist(playlistId, musicIds) {
   const token = localStorage.getItem('userToken');
+  const ids = Array.isArray(musicIds) ? musicIds : [musicIds];
 
   const response = await fetch('https://music.cnmsb.xin/api/user/playlist/music/remove', {
     method: 'POST',
@@ -1706,18 +1745,19 @@ async function removeMusicFromPlaylist(playlistId, musicId) {
     },
     body: JSON.stringify({
       playlistId: playlistId,
-      musicId: musicId
+      musicIds: ids
     })
   });
 
   const data = await response.json();
   if (data.success) {
-    console.log('Music removed from playlist successfully');
+    console.log(data.message || 'Removed from playlist', data.removedCount != null ? `removedCount=${data.removedCount}` : '');
     // You can refresh the playlist content here
-  } else if (data.message === 'No permission to modify this playlist') {
+  } else if (data.message === '无权限修改此歌单') {
     alert('You do not have permission to modify this playlist');
-  } else if (data.message.includes('music does not exist in playlist')) {
-    alert('Music does not exist in playlist');
+  } else if (Array.isArray(data.failedMusicIds) && data.failedMusicIds.length) {
+    console.error('Some tracks failed to remove', data.failedMusicIds, 'removedCount=', data.removedCount);
+    alert(data.message || 'Partial removal failed');
   } else {
     console.error('Failed to remove music from playlist:', data.message);
   }
