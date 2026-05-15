@@ -7,7 +7,7 @@ English Documentation: [English API doc.md](README-EN.md)
 #### 更新时间 2026年5月16日
 ## 概述
 
-Neko云音乐提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
+Neko云音乐提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
 
 **基础 URL:** `https://music.cnmsb.xin`
 
@@ -19,6 +19,7 @@ Neko云音乐提供完整的 RESTful API，支持音乐搜索、播放、用户�
 - [歌手相关 API](#歌手相关-api)
 - [VIP 与价目 API](#vip-与价目-api)
 - [音乐相关 API](#音乐相关-api)
+- [分享视频渲染 API](#分享视频渲染-api)
 - [错误码说明](#错误码说明)
 
 ---
@@ -1460,15 +1461,198 @@ async function getLatestMusic(limit = 300) {
 
 ---
 
+## 分享视频渲染 API
+
+将指定音乐渲染为 **1920×1080 横屏 MP4**（封面 + 波形 + 歌名/歌手，可选平台水印）。任务**异步**执行：创建接口立即返回 `jobId`，后台 FFmpeg 渲染；**完成后向用户注册邮箱发送 HTML 通知**，内含下载链接。
+
+### 权限与配额
+
+| 用户类型 | 成片时长 | 水印 | 每日次数 |
+|----------|----------|------|----------|
+| 非 VIP | 最长 15 秒（从 `startSec` 起） | **必须**开启 | 10 次/自然日（东八区） |
+| VIP | 从 `startSec` 至歌曲结束 | 可选（默认无水印） | 不限 |
+
+- 非 VIP 若请求 `watermarked: false`，返回 **403**「非会员须开启水印」。
+- 当日免费次数用尽返回 **429**。
+- 渲染队列满返回 **503**；功能关闭返回 **503**「视频生成功能未启用」。
+
+### 1. 创建渲染任务
+
+**端点:** `POST /api/video/render/create`
+
+**需要登录**
+
+**请求头:**
+```
+Content-Type: application/json
+Authorization: <token>
+```
+
+**请求体:**
+```json
+{
+  "musicId": 1,
+  "startSec": 0,
+  "watermarked": true
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| musicId | number | 是 | 音乐 ID |
+| startSec | number | 否 | 裁剪起点（秒），默认 0 |
+| watermarked | boolean | 否 | 是否添加平台水印；VIP 默认 `false`，非 VIP 必须为 `true` |
+
+**成功响应:** HTTP **202 Accepted**
+```json
+{
+  "success": true,
+  "message": "任务已创建，完成后将邮件通知并附下载链接",
+  "data": {
+    "jobId": "550e8400-e29b-41d4-a716-446655440000",
+    "status": "pending",
+    "isVip": false,
+    "durationSec": 15,
+    "watermarked": true,
+    "musicId": 1,
+    "remainingToday": 9
+  }
+}
+```
+
+- `remainingToday` 仅非 VIP 返回，表示今日剩余免费次数。
+- 客户端提交后无需轮询占满界面；用户可通过邮件获取下载链接。
+
+### 2. 查询任务状态
+
+**端点:** `GET /api/video/render/{jobId}`
+
+**需要登录**（仅能查询本人创建的任务）
+
+**请求头:**
+```
+Authorization: <token>
+```
+
+**响应示例（渲染中）:**
+```json
+{
+  "success": true,
+  "data": {
+    "jobId": "550e8400-e29b-41d4-a716-446655440000",
+    "status": "processing",
+    "musicId": 1,
+    "durationSec": 15,
+    "watermarked": true
+  }
+}
+```
+
+**`status` 取值:** `pending` | `processing` | `done` | `failed`
+
+**响应示例（已完成）:**
+```json
+{
+  "success": true,
+  "data": {
+    "jobId": "550e8400-e29b-41d4-a716-446655440000",
+    "status": "done",
+    "musicId": 1,
+    "durationSec": 15,
+    "watermarked": true,
+    "downloadUrl": "/api/video/render/550e8400-e29b-41d4-a716-446655440000/download"
+  }
+}
+```
+
+**响应示例（失败）:**
+```json
+{
+  "success": true,
+  "data": {
+    "jobId": "550e8400-e29b-41d4-a716-446655440000",
+    "status": "failed",
+    "musicId": 1,
+    "durationSec": 15,
+    "watermarked": true,
+    "error": "渲染失败原因摘要"
+  }
+}
+```
+
+### 3. 下载成片
+
+**端点:** `GET /api/video/render/{jobId}/download`
+
+**无需登录**
+
+- 任务状态须为 `done`。
+- 成功时返回 `video/mp4` 文件流，`Content-Disposition: attachment`。
+- 未完成返回 **409**；任务或文件不存在返回 **404**。
+- `jobId` 为 UUID，邮件中的链接形如：  
+  `https://music.cnmsb.xin/api/video/render/{jobId}/download`  
+  在浏览器或下载工具中直接打开即可，**不需要** Authorization 或 URL 参数 token。
+
+### 4. 邮件通知
+
+渲染成功后，系统向该用户**注册邮箱**发送 HTML 邮件（主题：`NekoMusic - 分享视频已生成`），内容包括：
+
+- 歌曲名、艺术家、成片时长
+- 下载按钮与完整 URL（同上 `/download` 地址）
+- 若成片含水印，邮件中会注明
+
+> 邮件发送依赖服务端 SMTP 与 `video_render.notify_frontend_base_url` 配置；未配置站点根 URL 时可能跳过发信。
+
+### 前端集成示例
+
+```javascript
+// 创建任务（需登录）
+async function createVideoRenderJob(musicId, startSec = 0, watermarked = true) {
+  const res = await fetch('https://music.cnmsb.xin/api/video/render/create', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: localStorage.getItem('userToken')
+    },
+    body: JSON.stringify({ musicId, startSec, watermarked })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.message);
+  return data.data;
+}
+
+// 下载成片（无需登录）
+async function downloadVideoClip(jobId, filename = 'clip.mp4') {
+  const res = await fetch(`https://music.cnmsb.xin/api/video/render/${jobId}/download`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `下载失败 (${res.status})`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+```
+
+---
+
 ## 错误码说明
 
 | 状态码 | 说明 |
 |--------|------|
 | 200 | 请求成功 |
+| 202 | 任务已接受（异步处理中） |
 | 400 | 请求参数错误 |
 | 401 | 未授权，需要登录或 Token 无效 |
 | 403 | 禁止访问，权限不足 |
 | 404 | 资源不存在 |
+| 409 | 资源状态冲突（如视频尚未渲染完成） |
+| 429 | 请求过于频繁或超出每日配额 |
+| 503 | 服务不可用（功能关闭或渲染队列已满） |
 | 500 | 服务器内部错误 |
 
 ### 错误响应格式
@@ -2043,7 +2227,14 @@ async function getFavoritePlaylistMusic(playlistId) {
    - `POST /api/user/send-reset-code` 向邮箱发送验证码。
    - `POST /api/user/reset-password` 验证码通过后重置密码。
 
-10. **收藏歌单:**
+10. **分享视频渲染:**
+   - 创建任务与查询状态需要登录；下载成片 **无需登录**。
+   - 非 VIP 必须 `watermarked: true`，否则 403；前端与后端均需校验。
+   - 创建成功后后台异步渲染，完成后邮件通知（HTML）并附 `/api/video/render/{jobId}/download` 链接。
+   - 建议前端：水印确认弹窗 → 提交后 toast 提示查收邮件，勿全屏阻塞轮询。
+   - 服务端 `config.yml` 中 `video_render` 段可配置开关、非 VIP 时长/次数、水印文案、`notify_frontend_base_url` 等（部署文档，非公开接口）。
+
+11. **收藏歌单:**
    - 用户可以收藏其他用户创建的歌单
    - 收藏歌单需要登录，通过 Authorization header 验证
    - 同一用户不能重复收藏同一个歌单

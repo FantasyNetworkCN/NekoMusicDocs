@@ -8,7 +8,7 @@ Chinese Documentation: [中文 API 文档](README.md)
 
 ## Overview
 
-Neko Music provides a complete RESTful API supporting music search, playback, user authentication, favorites, and more. All APIs are based on HTTP/HTTPS protocol and use JSON format for data exchange.
+Neko Music provides a complete RESTful API supporting music search, playback, user authentication, favorites, landscape share-video rendering, and more. All APIs are based on HTTP/HTTPS protocol and use JSON format for data exchange.
 
 **Base URL:** `https://music.cnmsb.xin`
 
@@ -20,6 +20,7 @@ Neko Music provides a complete RESTful API supporting music search, playback, us
 - [VIP & Pricing APIs](#vip--pricing-apis)
 - [Artist APIs](#artist-apis)
 - [Music APIs](#music-apis)
+- [Share Video Render APIs](#share-video-render-apis)
 - [Error Codes](#error-codes)
 
 ---
@@ -1465,15 +1466,192 @@ async function getLatestMusic(limit = 300) {
 
 ---
 
+## Share Video Render APIs
+
+Renders a track into a **1920×1080 landscape MP4** (cover art, waveform, title/artist, optional platform watermark). Jobs run **asynchronously**: the create endpoint returns a `jobId` immediately; FFmpeg renders in the background. When finished, an **HTML email** is sent to the user’s registered address with a download link.
+
+### Quotas & rules
+
+| User | Clip length | Watermark | Daily limit |
+|------|-------------|-----------|-------------|
+| Non-VIP | Up to 15s from `startSec` | **Required** | 10 / calendar day (UTC+8) |
+| VIP | From `startSec` to end of track | Optional (default off) | Unlimited |
+
+- Non-VIP requests with `watermarked: false` → **403** “Non-members must enable watermark”.
+- Daily free quota exceeded → **429**.
+- Render queue full → **503**; feature disabled → **503** “Video rendering is not enabled”.
+
+### 1. Create render job
+
+**Endpoint:** `POST /api/video/render/create`
+
+**Login required**
+
+**Headers:**
+```
+Content-Type: application/json
+Authorization: <token>
+```
+
+**Body:**
+```json
+{
+  "musicId": 1,
+  "startSec": 0,
+  "watermarked": true
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| musicId | number | Yes | Music ID |
+| startSec | number | No | Trim start (seconds), default 0 |
+| watermarked | boolean | No | Platform watermark; VIP default `false`, non-VIP must be `true` |
+
+**Success:** HTTP **202 Accepted**
+```json
+{
+  "success": true,
+  "message": "Job created; you will receive an email with the download link when finished",
+  "data": {
+    "jobId": "550e8400-e29b-41d4-a716-446655440000",
+    "status": "pending",
+    "isVip": false,
+    "durationSec": 15,
+    "watermarked": true,
+    "musicId": 1,
+    "remainingToday": 9
+  }
+}
+```
+
+- `remainingToday` is returned for non-VIP only.
+- Clients should not block the UI polling; users can download from the email link.
+
+### 2. Query job status
+
+**Endpoint:** `GET /api/video/render/{jobId}`
+
+**Login required** (own jobs only)
+
+**Headers:**
+```
+Authorization: <token>
+```
+
+**In progress:**
+```json
+{
+  "success": true,
+  "data": {
+    "jobId": "550e8400-e29b-41d4-a716-446655440000",
+    "status": "processing",
+    "musicId": 1,
+    "durationSec": 15,
+    "watermarked": true
+  }
+}
+```
+
+**`status`:** `pending` | `processing` | `done` | `failed`
+
+**Completed:**
+```json
+{
+  "success": true,
+  "data": {
+    "jobId": "550e8400-e29b-41d4-a716-446655440000",
+    "status": "done",
+    "musicId": 1,
+    "durationSec": 15,
+    "watermarked": true,
+    "downloadUrl": "/api/video/render/550e8400-e29b-41d4-a716-446655440000/download"
+  }
+}
+```
+
+**Failed:**
+```json
+{
+  "success": true,
+  "data": {
+    "jobId": "550e8400-e29b-41d4-a716-446655440000",
+    "status": "failed",
+    "musicId": 1,
+    "durationSec": 15,
+    "watermarked": true,
+    "error": "Short error summary"
+  }
+}
+```
+
+### 3. Download MP4
+
+**Endpoint:** `GET /api/video/render/{jobId}/download`
+
+**No login required**
+
+- Job must be `done`.
+- Success: `video/mp4` stream, `Content-Disposition: attachment`.
+- Not ready → **409**; missing job/file → **404**.
+- Email link example:  
+  `https://music.cnmsb.xin/api/video/render/{jobId}/download`  
+  Open directly in a browser or downloader — **no** Authorization header or URL token.
+
+### 4. Email notification
+
+On success, an HTML email is sent (subject: `NekoMusic - 分享视频已生成`) with song title, artist, duration, and the download URL above. Watermarked clips are noted in the email.
+
+> Requires server SMTP and `video_render.notify_frontend_base_url`; email may be skipped if the site base URL is not configured.
+
+### Frontend example
+
+```javascript
+async function createVideoRenderJob(musicId, startSec = 0, watermarked = true) {
+  const res = await fetch('https://music.cnmsb.xin/api/video/render/create', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: localStorage.getItem('userToken')
+    },
+    body: JSON.stringify({ musicId, startSec, watermarked })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) throw new Error(data.message);
+  return data.data;
+}
+
+async function downloadVideoClip(jobId, filename = 'clip.mp4') {
+  const res = await fetch(`https://music.cnmsb.xin/api/video/render/${jobId}/download`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `Download failed (${res.status})`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+```
+
+---
+
 ## Error Codes
 
 | Status Code | Description |
 |-------------|-------------|
 | 200 | Request successful |
+| 202 | Accepted (async job queued) |
 | 400 | Request parameter error |
 | 401 | Unauthorized, login required or Token invalid |
 | 403 | Forbidden, insufficient permissions |
 | 404 | Resource not found |
+| 409 | Conflict (e.g. video not finished yet) |
+| 429 | Too many requests or daily quota exceeded |
+| 503 | Service unavailable (feature off or render queue full) |
 | 500 | Internal server error |
 
 ### Error Response Format
@@ -2047,7 +2225,14 @@ async function getFavoritePlaylistMusic(playlistId) {
 9. **Forgot password:**
    - `POST /api/user/send-reset-code`, `POST /api/user/reset-password`.
 
-10. **Favorite Playlists:**
+10. **Share video rendering:**
+   - Create and status APIs require login; download **does not**.
+   - Non-VIP must send `watermarked: true` (403 otherwise); validate on client and server.
+   - After submit, rendering runs in the background; HTML email includes `/api/video/render/{jobId}/download`.
+   - UI: watermark confirm dialog → toast to check email; avoid full-screen polling.
+   - Server `video_render` in `config.yml` controls enable flag, non-VIP limits, watermark text, `notify_frontend_base_url` (deployment only, not a public API).
+
+11. **Favorite Playlists:**
    - Users can favorite playlists created by other users
    - Favoriting a playlist requires login, verified through Authorization header
    - The same user cannot favorite the same playlist multiple times
