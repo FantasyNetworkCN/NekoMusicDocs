@@ -4,7 +4,7 @@ English Documentation: [English API doc.md](README-EN.md)
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko云音乐 署名及源码链接！
 
-#### 更新时间 2026年4月7日
+#### 更新时间 2026年5月15日
 ## 概述
 
 Neko云音乐提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -17,6 +17,7 @@ Neko云音乐提供完整的 RESTful API，支持音乐搜索、播放、用户�
 - [用户相关 API](#用户相关-api)
 - [歌单相关 API](#歌单相关-api)
 - [歌手相关 API](#歌手相关-api)
+- [VIP 与价目 API](#vip-与价目-api)
 - [音乐相关 API](#音乐相关-api)
 - [错误码说明](#错误码说明)
 
@@ -103,7 +104,9 @@ Content-Type: application/json
       "id": 1,
       "username": "用户名",
       "email": "email@example.com",
-      "createdAt": "2024-01-01T00:00:00"
+      "createdAt": "2024-01-01T00:00:00",
+      "isVip": false,
+      "vipExpiresAt": null
     },
     "token": "64位十六进制字符串"
   }
@@ -807,6 +810,8 @@ Authorization: <token>
 {
   "success": true,
   "message": "获取歌单列表成功",
+  "isVip": false,
+  "vipExpiresAt": null,
   "playlists": [
     {
       "id": 1,
@@ -821,7 +826,7 @@ Authorization: <token>
 }
 ```
 
-**说明:** 此 API 只返回当前登录用户创建的歌单列表，歌单按创建时间倒序排列。每个用户只能看到自己创建的歌单，不会看到其他用户的歌单。
+**说明:** 此 API 只返回当前登录用户创建的歌单列表，歌单按创建时间倒序排列。每个用户只能看到自己创建的歌单，不会看到其他用户的歌单。响应 JSON **根级**还包含当前用户的会员信息：`isVip`（布尔）、`vipExpiresAt`（会员到期时间，ISO-8601；非会员或无到期记录时为 `null`），便于客户端与登录接口字段对齐。
 
 **注意事项:**
 - 此 API 需要登录才能访问
@@ -1128,6 +1133,82 @@ Content-Type: application/json
 - **歌单列表**：登录用户只能看到自己创建的歌单，不会看到其他用户的歌单
 - **修改权限**：所有修改和删除操作都会验证用户是否是歌单的创建者（通过 token 识别用户身份）
 - 如果用户尝试修改或删除不属于自己的歌单，服务器会返回 `403 Forbidden` 状态码和相应的错误信息
+
+---
+
+## VIP 与价目 API
+
+价目数据存储在主库 MySQL 表 `vip_pricing` 中，可与业务库一并备份、迁移。
+
+### 1. 查询 VIP 价目表（无需登录）
+
+**端点:** `GET /api/vip/pricing`
+
+**响应示例:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "months": 0,
+      "days": 7,
+      "priceYuan": 2.99,
+      "sortOrder": 0,
+      "updatedAt": "2026-05-15T12:00:00+08:00"
+    }
+  ]
+}
+```
+
+**字段说明:**
+
+| 字段 | 说明 |
+|------|------|
+| `months` / `days` | 套餐时长（月 + 天），至少一项大于 0 |
+| `priceYuan` | 价格（人民币元） |
+| `sortOrder` | 展示顺序；管理员全量更新时由请求体数组顺序决定 |
+| `updatedAt` | 该行最近更新时间（东八区 ISO-8601 带偏移） |
+
+### 2. 全量更新 VIP 价目表（管理员）
+
+**端点:** `PUT /api/admin/vip/pricing`
+
+**请求头:**
+```
+Content-Type: application/json
+Authorization: Bearer <管理员Token>
+```
+
+**权限:** 需具备与用户编辑同级权限（与后台 `PUT /api/users/{id}/edit` 一致；审核员无此权限）。
+
+**请求体:**
+```json
+{
+  "items": [
+    { "months": 1, "days": 0, "priceYuan": 9.99 },
+    { "months": 0, "days": 30, "priceYuan": 12.0 }
+  ]
+}
+```
+
+**规则:**
+
+- `items` 为非空数组，**全量替换**原有价目（先删除再插入）。
+- 每项：`months`、`days` 须为 ≥0 的整数，且 `months + days > 0`。
+- `priceYuan` 须为非负有限数。
+- 单次请求最多 **64** 条。
+
+**响应示例:**
+```json
+{
+  "success": true,
+  "message": "价目已更新",
+  "data": []
+}
+```
+
+其中 `data` 为更新后的完整价目列表，结构与「查询 VIP 价目表」相同。
 
 ---
 
@@ -1944,7 +2025,13 @@ async function getFavoritePlaylistMusic(playlistId) {
    - 搜索歌单 API 会返回歌单的第一首音乐封面 URL，方便客户端展示
    - 搜索歌单 API 使用 POST 方式，参数在请求体中传递
 
-8. **收藏歌单:**
+8. **VIP 与会员:**
+   - 用户登录响应 `data.user` 中含 `isVip`、`vipExpiresAt`（与歌单列表根级字段含义一致）。
+   - `GET /api/user/playlists` 响应根级含 `isVip`、`vipExpiresAt`，便于未再次登录时刷新会员状态。
+   - `GET /api/vip/pricing` 公开读取价目表（无需登录）。
+   - `PUT /api/admin/vip/pricing` 管理员全量维护价目表（Bearer 管理员 Token）。
+
+9. **收藏歌单:**
    - 用户可以收藏其他用户创建的歌单
    - 收藏歌单需要登录，通过 Authorization header 验证
    - 同一用户不能重复收藏同一个歌单

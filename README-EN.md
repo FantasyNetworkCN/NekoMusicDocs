@@ -4,7 +4,7 @@ Chinese Documentation: [中文 API 文档](README.md)
 
 ### Using this API requires compliance with this project's LICENSE agreement. You must open source and retain the Neko Music attribution and source code link!
 
-#### Last Updated(yyyy/mm/dd): 2026/4/7
+#### Last Updated(yyyy/mm/dd): 2026/5/15
 
 ## Overview
 
@@ -17,6 +17,7 @@ Neko Music provides a complete RESTful API supporting music search, playback, us
 - [Authentication](#authentication)
 - [User APIs](#user-apis)
 - [Playlist APIs](#playlist-apis)
+- [VIP & Pricing APIs](#vip--pricing-apis)
 - [Artist APIs](#artist-apis)
 - [Music APIs](#music-apis)
 - [Error Codes](#error-codes)
@@ -104,7 +105,9 @@ Content-Type: application/json
       "id": 1,
       "username": "username",
       "email": "email@example.com",
-      "createdAt": "2024-01-01T00:00:00"
+      "createdAt": "2024-01-01T00:00:00",
+      "isVip": false,
+      "vipExpiresAt": null
     },
     "token": "64-character hexadecimal string"
   }
@@ -808,6 +811,8 @@ Authorization: <token>
 {
   "success": true,
   "message": "Successfully retrieved playlists list",
+  "isVip": false,
+  "vipExpiresAt": null,
   "playlists": [
     {
       "id": 1,
@@ -822,7 +827,7 @@ Authorization: <token>
 }
 ```
 
-**Notes:** This API only returns playlists created by the current logged-in user. Playlists are sorted by creation time in descending order. Each user can only see their own playlists and will not see other users' playlists.
+**Notes:** This API only returns playlists created by the current logged-in user. Playlists are sorted by creation time in descending order. Each user can only see their own playlists and will not see other users' playlists. The JSON **root** also includes membership fields `isVip` (boolean) and `vipExpiresAt` (VIP expiry as ISO-8601, or `null` if not VIP / no expiry), aligned with the login response user object.
 
 **Important Notes:**
 - This API requires login to access
@@ -1132,6 +1137,82 @@ If some IDs are not in the playlist or cannot be removed, tracks already removed
 - **Playlist List**: Logged-in users can only see their own playlists and will not see other users' playlists
 - **Modify Permissions**: All modification and deletion operations verify if the user is the playlist creator (identify user identity through token)
 - If a user attempts to modify or delete a playlist that doesn't belong to them, the server will return `403 Forbidden` status code and corresponding error message
+
+---
+
+## VIP & Pricing APIs
+
+VIP pricing rows are stored in the main MySQL database table `vip_pricing` (backup and migrate together with business data).
+
+### 1. Get VIP pricing (no login)
+
+**Endpoint:** `GET /api/vip/pricing`
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "months": 0,
+      "days": 7,
+      "priceYuan": 2.99,
+      "sortOrder": 0,
+      "updatedAt": "2026-05-15T12:00:00+08:00"
+    }
+  ]
+}
+```
+
+**Fields:**
+
+| Field | Description |
+|-------|-------------|
+| `months` / `days` | Package duration (months + days); at least one must be &gt; 0 |
+| `priceYuan` | Price in CNY (yuan) |
+| `sortOrder` | Display order; when admin replaces all rows, order follows the request array |
+| `updatedAt` | Last update time (Asia/Shanghai, ISO-8601 with offset) |
+
+### 2. Replace VIP pricing (admin)
+
+**Endpoint:** `PUT /api/admin/vip/pricing`
+
+**Request Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer <adminToken>
+```
+
+**Permission:** Same level as editing users (`PUT /api/users/{id}/edit`); auditors do **not** have this permission.
+
+**Request Body:**
+```json
+{
+  "items": [
+    { "months": 1, "days": 0, "priceYuan": 9.99 },
+    { "months": 0, "days": 30, "priceYuan": 12.0 }
+  ]
+}
+```
+
+**Rules:**
+
+- `items` must be a non-empty array; operation **replaces** the whole catalog (delete then insert).
+- Each item: `months` and `days` are integers ≥ 0, and `months + days > 0`.
+- `priceYuan` must be a non-negative finite number.
+- At most **64** rows per request.
+
+**Response Example:**
+```json
+{
+  "success": true,
+  "message": "Pricing updated",
+  "data": []
+}
+```
+
+`data` is the full updated list (same shape as GET `/api/vip/pricing`).
 
 ---
 
@@ -1946,7 +2027,13 @@ async function getFavoritePlaylistMusic(playlistId) {
    - Search playlists API returns the first music cover URL in the playlist for easy client display
    - Search playlists API uses POST method with parameters in request body
 
-8. **Favorite Playlists:**
+8. **VIP & membership:**
+   - Login response `data.user` includes `isVip` and `vipExpiresAt` (same meaning as playlist list root fields).
+   - `GET /api/user/playlists` root includes `isVip` and `vipExpiresAt` for refreshing membership without logging in again.
+   - `GET /api/vip/pricing` is public (no login).
+   - `PUT /api/admin/vip/pricing` replaces all pricing rows (admin Bearer token).
+
+9. **Favorite Playlists:**
    - Users can favorite playlists created by other users
    - Favoriting a playlist requires login, verified through Authorization header
    - The same user cannot favorite the same playlist multiple times
