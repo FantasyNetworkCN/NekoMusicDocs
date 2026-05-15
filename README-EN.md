@@ -4,7 +4,7 @@ Chinese Documentation: [中文 API 文档](README.md)
 
 ### Using this API requires compliance with this project's LICENSE agreement. You must open source and retain the Neko Music attribution and source code link!
 
-#### Last Updated(yyyy/mm/dd): 2026/5/15
+#### Last Updated(yyyy/mm/dd): 2026/5/16
 
 ## Overview
 
@@ -138,7 +138,58 @@ Content-Type: application/json
 }
 ```
 
-### 4. Get User Avatar
+### 4. Send Reset Password Code
+
+**Endpoint:** `POST /api/user/send-reset-code`
+
+**Request Headers:**
+```
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "email": "string"
+}
+```
+
+**Response Example (success):**
+```json
+{
+  "success": true,
+  "message": "Verification code sent to your email",
+  "data": null
+}
+```
+
+**Notes:** If the email is not registered, the API may still return a generic success-style message for security.
+
+### 5. Reset Password
+
+**Endpoint:** `POST /api/user/reset-password`
+
+**Request Body:**
+```json
+{
+  "email": "string",
+  "code": "string",
+  "newPassword": "string"
+}
+```
+
+- `newPassword`: 6–30 characters.
+
+**Response Example (success):**
+```json
+{
+  "success": true,
+  "message": "Password reset successful, please log in with your new password",
+  "data": null
+}
+```
+
+### 6. Get User Avatar
 
 **Endpoint:** `GET /api/user/avatar/{userId}`
 
@@ -147,7 +198,7 @@ Content-Type: application/json
 
 **Response:** Image file (PNG/JPG)
 
-### 5. Get Favorites List
+### 7. Get Favorites List
 
 **Endpoint:** `GET /api/user/favorites`
 
@@ -173,7 +224,7 @@ Authorization: <token>
 }
 ```
 
-### 6. Add to Favorites
+### 8. Add to Favorites
 
 **Endpoint:** `POST /api/user/favorites`
 
@@ -198,7 +249,7 @@ Content-Type: application/json
 }
 ```
 
-### 7. Remove from Favorites
+### 9. Remove from Favorites
 
 **Endpoint:** `DELETE /api/user/favorites/{musicId}`
 
@@ -218,7 +269,7 @@ Authorization: <token>
 }
 ```
 
-### 8. Get Favorite Playlists List
+### 10. Get Favorite Playlists List
 
 **Endpoint:** `GET /api/user/favorite-playlists`
 
@@ -254,7 +305,7 @@ Authorization: <token>
 - Only returns playlists favorited by the current user
 - Sorted by favorite time in descending order
 
-### 9. Favorite a Playlist
+### 11. Favorite a Playlist
 
 **Endpoint:** `POST /api/user/favorite-playlists`
 
@@ -287,7 +338,7 @@ Content-Type: application/json
 }
 ```
 
-### 10. Unfavorite a Playlist
+### 12. Unfavorite a Playlist
 
 **Endpoint:** `DELETE /api/user/favorite-playlists/{playlistId}`
 
@@ -307,7 +358,7 @@ Authorization: <token>
 }
 ```
 
-### 11. Get Music in Favorite Playlist
+### 13. Get Music in Favorite Playlist
 
 **Endpoint:** `GET /api/user/favorite-playlists/{playlistId}`
 
@@ -349,7 +400,7 @@ Authorization: <token>
 - Only users who have favorited the playlist can view the music inside
 - Music is sorted by `position` field in ascending order
 
-### 12. Upload User Avatar
+### 14. Upload User Avatar
 
 **Endpoint:** `POST /api/user/avatar/upload`
 
@@ -388,7 +439,7 @@ Or
 }
 ```
 
-### 13. User Upload Music
+### 15. User Upload Music
 
 **Endpoint:** `POST /api/user/upload`
 
@@ -498,7 +549,7 @@ formData.append('lyricsFile', lyricsFileObject); // Optional
 uploadMusic(formData);
 ```
 
-### 14. Change User Password
+### 16. Change User Password
 
 **Endpoint:** `POST /api/user/password/change`
 
@@ -1142,7 +1193,7 @@ If some IDs are not in the playlist or cannot be removed, tracks already removed
 
 ## VIP & Pricing APIs
 
-VIP pricing rows are stored in the main MySQL database table `vip_pricing` (backup and migrate together with business data).
+Public endpoints are for **displaying** current membership packages and prices only. Purchase and payment are done on the site’s VIP page; payment gateways, callbacks, and admin maintenance APIs are not documented here.
 
 ### 1. Get VIP pricing (no login)
 
@@ -1171,48 +1222,10 @@ VIP pricing rows are stored in the main MySQL database table `vip_pricing` (back
 |-------|-------------|
 | `months` / `days` | Package duration (months + days); at least one must be &gt; 0 |
 | `priceYuan` | Price in CNY (yuan) |
-| `sortOrder` | Display order; when admin replaces all rows, order follows the request array |
+| `sortOrder` | Display order (lower values first; server-defined) |
 | `updatedAt` | Last update time (Asia/Shanghai, ISO-8601 with offset) |
 
-### 2. Replace VIP pricing (admin)
-
-**Endpoint:** `PUT /api/admin/vip/pricing`
-
-**Request Headers:**
-```
-Content-Type: application/json
-Authorization: Bearer <adminToken>
-```
-
-**Permission:** Same level as editing users (`PUT /api/users/{id}/edit`); auditors do **not** have this permission.
-
-**Request Body:**
-```json
-{
-  "items": [
-    { "months": 1, "days": 0, "priceYuan": 9.99 },
-    { "months": 0, "days": 30, "priceYuan": 12.0 }
-  ]
-}
-```
-
-**Rules:**
-
-- `items` must be a non-empty array; operation **replaces** the whole catalog (delete then insert).
-- Each item: `months` and `days` are integers ≥ 0, and `months + days > 0`.
-- `priceYuan` must be a non-negative finite number.
-- At most **64** rows per request.
-
-**Response Example:**
-```json
-{
-  "success": true,
-  "message": "Pricing updated",
-  "data": []
-}
-```
-
-`data` is the full updated list (same shape as GET `/api/vip/pricing`).
+**Membership fields (client):** Login `data.user` and `GET /api/user/playlists` root both include `isVip` and `vipExpiresAt` with the same meaning.
 
 ---
 
@@ -2030,10 +2043,11 @@ async function getFavoritePlaylistMusic(playlistId) {
 8. **VIP & membership:**
    - Login response `data.user` includes `isVip` and `vipExpiresAt` (same meaning as playlist list root fields).
    - `GET /api/user/playlists` root includes `isVip` and `vipExpiresAt` for refreshing membership without logging in again.
-   - `GET /api/vip/pricing` is public (no login).
-   - `PUT /api/admin/vip/pricing` replaces all pricing rows (admin Bearer token).
+   - `GET /api/vip/pricing` is public (no login); payment and admin APIs are not in this public doc.
+9. **Forgot password:**
+   - `POST /api/user/send-reset-code`, `POST /api/user/reset-password`.
 
-9. **Favorite Playlists:**
+10. **Favorite Playlists:**
    - Users can favorite playlists created by other users
    - Favoriting a playlist requires login, verified through Authorization header
    - The same user cannot favorite the same playlist multiple times

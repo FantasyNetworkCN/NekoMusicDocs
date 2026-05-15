@@ -4,7 +4,7 @@ English Documentation: [English API doc.md](README-EN.md)
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko云音乐 署名及源码链接！
 
-#### 更新时间 2026年5月15日
+#### 更新时间 2026年5月16日
 ## 概述
 
 Neko云音乐提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -137,7 +137,64 @@ Content-Type: application/json
 }
 ```
 
-### 4. 获取用户头像
+### 4. 发送重置密码验证码
+
+**端点:** `POST /api/user/send-reset-code`
+
+**请求头:**
+```
+Content-Type: application/json
+```
+
+**请求体:**
+```json
+{
+  "email": "string"  // 注册邮箱（必填）
+}
+```
+
+**响应示例（成功）:**
+```json
+{
+  "success": true,
+  "message": "验证码已发送至您的邮箱",
+  "data": null
+}
+```
+
+**说明:**
+
+- 若邮箱未注册，为安全起见仍可能返回与成功类似的提示，不会明确告知「邮箱不存在」。
+- 验证码逻辑与注册验证码相同，通过邮件发送。
+
+### 5. 重置密码
+
+**端点:** `POST /api/user/reset-password`
+
+**请求头:**
+```
+Content-Type: application/json
+```
+
+**请求体:**
+```json
+{
+  "email": "string",       // 邮箱（必填）
+  "code": "string",        // 邮件验证码（必填）
+  "newPassword": "string"  // 新密码（必填，6–30 位）
+}
+```
+
+**响应示例（成功）:**
+```json
+{
+  "success": true,
+  "message": "密码重置成功，请使用新密码登录",
+  "data": null
+}
+```
+
+### 6. 获取用户头像
 
 **端点:** `GET /api/user/avatar/{userId}`
 
@@ -146,7 +203,7 @@ Content-Type: application/json
 
 **响应:** 图片文件 (PNG/JPG)
 
-### 5. 获取收藏列表
+### 7. 获取收藏列表
 
 **端点:** `GET /api/user/favorites`
 
@@ -172,7 +229,7 @@ Authorization: <token>
 }
 ```
 
-### 6. 添加收藏
+### 8. 添加收藏
 
 **端点:** `POST /api/user/favorites`
 
@@ -197,7 +254,7 @@ Content-Type: application/json
 }
 ```
 
-### 7. 删除收藏
+### 9. 删除收藏
 
 **端点:** `DELETE /api/user/favorites/{musicId}`
 
@@ -217,7 +274,7 @@ Authorization: <token>
 }
 ```
 
-### 8. 获取收藏歌单列表
+### 10. 获取收藏歌单列表
 
 **端点:** `GET /api/user/favorite-playlists`
 
@@ -253,7 +310,7 @@ Authorization: <token>
 - 只返回当前用户收藏的歌单列表
 - 按收藏时间倒序排列
 
-### 9. 收藏歌单
+### 11. 收藏歌单
 
 **端点:** `POST /api/user/favorite-playlists`
 
@@ -286,7 +343,7 @@ Content-Type: application/json
 }
 ```
 
-### 10. 取消收藏歌单
+### 12. 取消收藏歌单
 
 **端点:** `DELETE /api/user/favorite-playlists/{playlistId}`
 
@@ -306,7 +363,7 @@ Authorization: <token>
 }
 ```
 
-### 11. 获取收藏歌单内音乐
+### 13. 获取收藏歌单内音乐
 
 **端点:** `GET /api/user/favorite-playlists/{playlistId}`
 
@@ -348,7 +405,7 @@ Authorization: <token>
 - 只有收藏过该歌单的用户才能查看歌单内的音乐
 - 音乐按 position 字段升序排列
 
-### 12. 上传用户头像
+### 14. 上传用户头像
 
 **端点:** `POST /api/user/avatar/upload`
 
@@ -387,7 +444,7 @@ Content-Type: multipart/form-data
 }
 ```
 
-### 13. 用户上传音乐
+### 15. 用户上传音乐
 
 **端点:** `POST /api/user/upload`
 
@@ -497,7 +554,7 @@ formData.append('lyricsFile', lyricsFileObject); // 可选
 uploadMusic(formData);
 ```
 
-### 14. 修改用户密码
+### 16. 修改用户密码
 
 **端点:** `POST /api/user/password/change`
 
@@ -546,7 +603,7 @@ Content-Type: application/json
 }
 ```
 
-### 15. 获取用户上传审核通过的音乐
+### 17. 获取用户上传审核通过的音乐
 
 **端点:** `GET /api/user/uploaded-music`
 
@@ -674,7 +731,6 @@ Content-Type: application/json
       "createdAt": "2026-01-29 12:00:00",
       "updatedAt": "2026-01-29 12:05:00",
       "firstMusicId": 1,
-      "firstMusicCover": "/path/to/cover.jpg"
     },
     {
       "id": 2,
@@ -955,8 +1011,6 @@ Authorization: <token>
       "artist": "艺术家",
       "album": "专辑",
       "duration": 180,
-      "coverPath": "/path/to/cover.jpg",
-      "filePath": "/path/to/music.mp3",
       "fileFormat": "mp3",
       "language": "中文",
       "position": 1,
@@ -1138,7 +1192,7 @@ Content-Type: application/json
 
 ## VIP 与价目 API
 
-价目数据存储在主库 MySQL 表 `vip_pricing` 中，可与业务库一并备份、迁移。
+公开接口仅用于**展示**当前在售会员套餐与时长价格。会员开通、支付请在站内「会员中心」完成；支付与后台维护接口不在本文档公开范围。
 
 ### 1. 查询 VIP 价目表（无需登录）
 
@@ -1167,48 +1221,10 @@ Content-Type: application/json
 |------|------|
 | `months` / `days` | 套餐时长（月 + 天），至少一项大于 0 |
 | `priceYuan` | 价格（人民币元） |
-| `sortOrder` | 展示顺序；管理员全量更新时由请求体数组顺序决定 |
+| `sortOrder` | 展示顺序（数值越小越靠前，以服务端为准） |
 | `updatedAt` | 该行最近更新时间（东八区 ISO-8601 带偏移） |
 
-### 2. 全量更新 VIP 价目表（管理员）
-
-**端点:** `PUT /api/admin/vip/pricing`
-
-**请求头:**
-```
-Content-Type: application/json
-Authorization: Bearer <管理员Token>
-```
-
-**权限:** 需具备与用户编辑同级权限（与后台 `PUT /api/users/{id}/edit` 一致；审核员无此权限）。
-
-**请求体:**
-```json
-{
-  "items": [
-    { "months": 1, "days": 0, "priceYuan": 9.99 },
-    { "months": 0, "days": 30, "priceYuan": 12.0 }
-  ]
-}
-```
-
-**规则:**
-
-- `items` 为非空数组，**全量替换**原有价目（先删除再插入）。
-- 每项：`months`、`days` 须为 ≥0 的整数，且 `months + days > 0`。
-- `priceYuan` 须为非负有限数。
-- 单次请求最多 **64** 条。
-
-**响应示例:**
-```json
-{
-  "success": true,
-  "message": "价目已更新",
-  "data": []
-}
-```
-
-其中 `data` 为更新后的完整价目列表，结构与「查询 VIP 价目表」相同。
+**会员状态字段（用户侧）:** 登录接口 `data.user` 与 `GET /api/user/playlists` 响应根级均含 `isVip`、`vipExpiresAt`，含义一致，便于客户端展示与刷新。
 
 ---
 
@@ -1336,8 +1352,6 @@ Content-Type: application/json
       "artist": "艺术家",
       "album": "专辑",
       "duration": 180,
-      "coverPath": "/path/to/cover.jpg",
-      "coverUrl": "/path/to/cover.jpg",
       "language": "中文",
       "tags": "流行",
       "playCount": 100
@@ -1353,8 +1367,6 @@ Content-Type: application/json
 - 默认返回前 200 首，最多支持返回 200 首
 - 每首音乐包含：
   - id, title, artist, album, duration
-  - coverPath: 封面文件路径
-  - coverUrl: 封面访问 URL（如果封面不存在则为默认图标）
   - language: 语言
   - tags: 标签
   - playCount: 播放次数
@@ -1418,8 +1430,6 @@ async function getMusicRanking(limit = 200) {
 - 默认返回最新 300 首音乐，最多支持返回 500 首
 - 每首音乐包含：
   - id, title, artist, album, duration
-  - coverPath: 封面文件路径
-  - coverUrl: 封面访问 URL（如果封面不存在则为默认图标）
   - language: 语言
   - tags: 标签
   - fileFormat: 音频文件格式（mp3/flac/wav）
@@ -1605,7 +1615,7 @@ async function searchArtists(query) {
     // artist.musicList 是一个数组，包含该歌手的所有音乐
     // 每首音乐包含：
     // - id, title, artist, album, duration
-    // - coverPath, filePath, fileFormat, language
+    // - fileFormat, language
   } else {
     console.error('搜索歌手失败:', data.message);
   }
@@ -2028,10 +2038,12 @@ async function getFavoritePlaylistMusic(playlistId) {
 8. **VIP 与会员:**
    - 用户登录响应 `data.user` 中含 `isVip`、`vipExpiresAt`（与歌单列表根级字段含义一致）。
    - `GET /api/user/playlists` 响应根级含 `isVip`、`vipExpiresAt`，便于未再次登录时刷新会员状态。
-   - `GET /api/vip/pricing` 公开读取价目表（无需登录）。
-   - `PUT /api/admin/vip/pricing` 管理员全量维护价目表（Bearer 管理员 Token）。
+   - `GET /api/vip/pricing` 公开读取价目表（无需登录）；支付与后台维护不在公开 API 文档中说明。
+9. **忘记密码:**
+   - `POST /api/user/send-reset-code` 向邮箱发送验证码。
+   - `POST /api/user/reset-password` 验证码通过后重置密码。
 
-9. **收藏歌单:**
+10. **收藏歌单:**
    - 用户可以收藏其他用户创建的歌单
    - 收藏歌单需要登录，通过 Authorization header 验证
    - 同一用户不能重复收藏同一个歌单
@@ -2081,8 +2093,6 @@ Content-Type: application/json
         "artist": "周杰伦",
         "album": "七里香",
         "duration": 298,
-        "coverPath": "/path/to/cover1.jpg",
-        "filePath": "/path/to/music1.mp3",
         "fileFormat": "mp3",
         "language": "中文"
       },
@@ -2092,8 +2102,6 @@ Content-Type: application/json
         "artist": "周杰伦",
         "album": "叶惠美",
         "duration": 269,
-        "coverPath": "/path/to/cover2.jpg",
-        "filePath": "/path/to/music2.mp3",
         "fileFormat": "mp3",
         "language": "中文"
       }
