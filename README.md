@@ -1463,7 +1463,7 @@ async function getLatestMusic(limit = 300) {
 
 ## 分享视频渲染 API
 
-将指定音乐渲染为 **1920×1080 横屏 MP4**（封面 + 波形 + 歌名/歌手，可选平台水印）。任务**异步**执行：创建接口立即返回 `jobId`，后台 FFmpeg 渲染；**完成后向用户注册邮箱发送 HTML 通知**，内含下载链接。
+将指定音乐渲染为 **1920×1080 横屏 MP4**（封面 + 波形 + 歌名/歌手，可选平台水印）。任务**异步**执行：创建接口立即返回 `jobId`，后台自动合成；**完成后向用户注册邮箱发送 HTML 通知**，内含下载链接。
 
 ### 权限与配额
 
@@ -1502,6 +1502,8 @@ Authorization: <token>
 | musicId | number | 是 | 音乐 ID |
 | startSec | number | 否 | 裁剪起点（秒），默认 0 |
 | watermarked | boolean | 否 | 是否添加平台水印；VIP 默认 `false`，非 VIP 必须为 `true` |
+
+- 水印为平台固定样式，**不能**通过本接口上传或指定自定义图案。
 
 **成功响应:** HTTP **202 Accepted**
 ```json
@@ -1601,7 +1603,7 @@ Authorization: <token>
 - 下载按钮与完整 URL（同上 `/download` 地址）
 - 若成片含水印，邮件中会注明
 
-> 邮件发送依赖服务端 SMTP 与 `video_render.notify_frontend_base_url` 配置；未配置站点根 URL 时可能跳过发信。
+若未收到邮件，可先查看垃圾邮件箱；任务状态为 `done` 后，也可使用「查询任务」接口返回的 `downloadUrl` 或本页所述下载地址直接保存成片。
 
 ### 前端集成示例
 
@@ -2232,7 +2234,6 @@ async function getFavoritePlaylistMusic(playlistId) {
    - 非 VIP 必须 `watermarked: true`，否则 403；前端与后端均需校验。
    - 创建成功后后台异步渲染，完成后邮件通知（HTML）并附 `/api/video/render/{jobId}/download` 链接。
    - 建议前端：水印确认弹窗 → 提交后 toast 提示查收邮件，勿全屏阻塞轮询。
-   - 服务端 `config.yml` 中 `video_render` 段可配置开关、非 VIP 时长/次数、水印文案、`notify_frontend_base_url` 等（部署文档，非公开接口）。
 
 11. **收藏歌单:**
    - 用户可以收藏其他用户创建的歌单

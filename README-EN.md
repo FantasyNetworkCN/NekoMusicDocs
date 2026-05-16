@@ -1468,7 +1468,7 @@ async function getLatestMusic(limit = 300) {
 
 ## Share Video Render APIs
 
-Renders a track into a **1920×1080 landscape MP4** (cover art, waveform, title/artist, optional platform watermark). Jobs run **asynchronously**: the create endpoint returns a `jobId` immediately; FFmpeg renders in the background. When finished, an **HTML email** is sent to the user’s registered address with a download link.
+Renders a track into a **1920×1080 landscape MP4** (cover art, waveform, title/artist, optional platform watermark). Jobs run **asynchronously**: the create endpoint returns a `jobId` immediately; the server renders in the background. When finished, an **HTML email** is sent to the user’s registered address with a download link.
 
 ### Quotas & rules
 
@@ -1507,6 +1507,8 @@ Authorization: <token>
 | musicId | number | Yes | Music ID |
 | startSec | number | No | Trim start (seconds), default 0 |
 | watermarked | boolean | No | Platform watermark; VIP default `false`, non-VIP must be `true` |
+
+- Watermark appearance is fixed by the platform; **cannot** upload or pick a custom image via this API.
 
 **Success:** HTTP **202 Accepted**
 ```json
@@ -1602,7 +1604,7 @@ Authorization: <token>
 
 On success, an HTML email is sent (subject: `NekoMusic - 分享视频已生成`) with song title, artist, duration, and the download URL above. Watermarked clips are noted in the email.
 
-> Requires server SMTP and `video_render.notify_frontend_base_url`; email may be skipped if the site base URL is not configured.
+If you do not receive the email, check spam; once the job is `done`, you can also use the `downloadUrl` from the status API or the download URL described above.
 
 ### Frontend example
 
@@ -2230,7 +2232,6 @@ async function getFavoritePlaylistMusic(playlistId) {
    - Non-VIP must send `watermarked: true` (403 otherwise); validate on client and server.
    - After submit, rendering runs in the background; HTML email includes `/api/video/render/{jobId}/download`.
    - UI: watermark confirm dialog → toast to check email; avoid full-screen polling.
-   - Server `video_render` in `config.yml` controls enable flag, non-VIP limits, watermark text, `notify_frontend_base_url` (deployment only, not a public API).
 
 11. **Favorite Playlists:**
    - Users can favorite playlists created by other users
