@@ -180,7 +180,7 @@ Content-Type: application/json
 }
 ```
 
-**Notes:** If the email is not registered, the API may still return a generic success-style message for security.
+**Notes:** If the email is not registered, `success` is `false`, `message` indicates that (Chinese: 该邮箱未注册), and **no** verification email is sent.
 
 ### 5. Reset Password
 
