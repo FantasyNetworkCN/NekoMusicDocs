@@ -4,7 +4,7 @@ Chinese Documentation: [中文 API 文档](README.md)
 
 ### Using this API requires compliance with this project's LICENSE agreement. You must open source and retain the Neko Music attribution and source code link!
 
-#### Last Updated(yyyy/mm/dd): 2026/5/16
+#### Last Updated(yyyy/mm/dd): 2026/5/22
 
 ## Overview
 
@@ -16,6 +16,7 @@ Neko Music provides a complete RESTful API supporting music search, playback, us
 
 - [Authentication](#authentication)
 - [User APIs](#user-apis)
+- [Slider captcha & registration email verification](API-captcha-slider-en.md)
 - [Playlist APIs](#playlist-apis)
 - [VIP & Pricing APIs](#vip--pricing-apis)
 - [Artist APIs](#artist-apis)
@@ -117,6 +118,10 @@ Content-Type: application/json
 
 ### 3. Send Email Verification Code
 
+Used before **sign-up** to send a numeric code to the mailbox. Requires a valid `captchaPassToken` from the slider verify step.
+
+**Detailed doc:** [API-captcha-slider-en.md](API-captcha-slider-en.md) (`GET /api/captcha/slider`, `POST /api/captcha/slider/verify`, and this endpoint).
+
 **Endpoint:** `POST /api/user/send-verification`
 
 **Request Headers:**
@@ -127,17 +132,28 @@ Content-Type: application/json
 **Request Body:**
 ```json
 {
-  "email": "string"  // Email address
+  "email": "string",
+  "username": "string",
+  "captchaPassToken": "string"
 }
 ```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `email` | Yes | Mailbox that receives the code |
+| `username` | No | Display name; server may default if omitted |
+| `captchaPassToken` | Yes | One-time token from successful `POST /api/captcha/slider/verify` |
 
 **Response Example:**
 ```json
 {
   "success": true,
-  "message": "Verification code sent to your email"
+  "message": "Verification code sent to your email",
+  "data": null
 }
 ```
+
+If captcha is missing or invalid, `success` is `false` with an explanatory `message`. Rate limiting may return HTTP `429` when enabled.
 
 ### 4. Send Reset Password Code
 

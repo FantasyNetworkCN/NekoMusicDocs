@@ -4,7 +4,7 @@ English Documentation: [English API doc.md](README-EN.md)
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko云音乐 署名及源码链接！
 
-#### 更新时间 2026年5月16日
+#### 更新时间 2026年5月22日
 ## 概述
 
 Neko云音乐提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -15,6 +15,7 @@ Neko云音乐提供完整的 RESTful API，支持音乐搜索、播放、用户�
 
 - [认证说明](#认证说明)
 - [用户相关 API](#用户相关-api)
+- [滑块人机验证与注册邮箱验证码（专项）](API-滑块与人机验证.md)
 - [歌单相关 API](#歌单相关-api)
 - [歌手相关 API](#歌手相关-api)
 - [VIP 与价目 API](#vip-与价目-api)
@@ -116,6 +117,10 @@ Content-Type: application/json
 
 ### 3. 发送邮箱验证码
 
+用于**注册**前向邮箱发送数字验证码。须先完成滑块校验并取得 `captchaPassToken`（详见专项文档）。
+
+**专项文档（推荐）：** [API-滑块与人机验证.md](API-滑块与人机验证.md)（含 `GET /api/captcha/slider`、`POST /api/captcha/slider/verify` 与本接口的完整字段与流程说明）
+
 **端点:** `POST /api/user/send-verification`
 
 **请求头:**
@@ -126,17 +131,28 @@ Content-Type: application/json
 **请求体:**
 ```json
 {
-  "email": "string"  // 邮箱地址
+  "email": "string",
+  "username": "string",
+  "captchaPassToken": "string"
 }
 ```
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `email` | 是 | 接收验证码的邮箱 |
+| `username` | 否 | 展示名等，缺省可由服务端按「用户」处理 |
+| `captchaPassToken` | 是 | 调用 `POST /api/captcha/slider/verify` 成功后返回的一次性通行令牌 |
 
 **响应示例:**
 ```json
 {
   "success": true,
-  "message": "验证码已发送到您的邮箱"
+  "message": "验证码已发送至您的邮箱",
+  "data": null
 }
 ```
+
+未通过人机验证或令牌无效时，`success` 为 `false`，`message` 会说明原因（如须先完成滑动拼图、令牌已失效等）。发信频率过高时可能返回 HTTP `429`（若服务端启用限流）。
 
 ### 4. 发送重置密码验证码
 
