@@ -435,7 +435,7 @@ Content-Type: multipart/form-data
 **请求参数:**
 - `avatar`: 图片文件 (multipart/form-data)
   - 支持格式：jpg, jpeg, png, gif, webp, bmp
-  - 最大文件大小：50MiB
+  - 最大文件大小：10MiB
 
 **响应示例（成功）:**
 ```json
@@ -457,7 +457,7 @@ Content-Type: multipart/form-data
 
 ```json
 {
-  "error": "文件大小超过50MiB限制"
+  "error": "文件大小超过10MiB限制"
 }
 ```
 

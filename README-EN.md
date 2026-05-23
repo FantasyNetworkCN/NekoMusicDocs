@@ -430,7 +430,7 @@ Content-Type: multipart/form-data
 **Request Parameters:**
 - `avatar`: Image file (multipart/form-data)
   - Supported formats: jpg, jpeg, png, gif, webp, bmp
-  - Maximum file size: 50MiB
+  - Maximum file size: 10MiB
 
 **Response Example (Success):**
 ```json
@@ -452,7 +452,7 @@ Or
 
 ```json
 {
-  "error": "File size exceeds 50MiB limit"
+  "error": "File size exceeds 10MiB limit"
 }
 ```
 
@@ -461,7 +461,7 @@ Or
 **Endpoint:** `POST /api/user/upload`
 
 **Request Headers:**
-```
+```Mi B
 Authorization: Bearer <token>
 Content-Type: multipart/form-data
 ```
