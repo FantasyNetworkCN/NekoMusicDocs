@@ -252,17 +252,59 @@ Content-Type: application/json
 ```
 
 **Request Body:**
+
+Music IDs can be supplied in either or both of the following ways (values are **merged**, then **deduplicated** while preserving first-seen order, then favorited one by one):
+
+- `musicId`: a single music ID (backward compatible)
+- `musicIds`: an array of integers to favorite multiple tracks in one request
+
+After merge and deduplication there must be **at least one** music ID, otherwise the API returns `400`.
+
 ```json
 {
-  "musicId": 1  // Music ID
+  "musicId": 1
 }
 ```
 
-**Response Example:**
+Batch example:
+
+```json
+{
+  "musicIds": [1, 2, 3]
+}
+```
+
+You may send both `musicId` and `musicIds`; duplicate IDs are only favorited once.
+
+**Response Example (Success, single track):**
 ```json
 {
   "success": true,
-  "message": "Added to favorites successfully"
+  "addedCount": 1,
+  "message": "收藏成功"
+}
+```
+
+**Response Example (Success, multiple tracks):**
+```json
+{
+  "success": true,
+  "addedCount": 3,
+  "message": "已收藏 3 首音乐"
+}
+```
+
+*(The `message` field is returned in Chinese by the server.)*
+
+**Response Example (Partial failure, HTTP 400):**  
+If some IDs are already favorited, successful adds in the same request remain. The response lists IDs that failed.
+
+```json
+{
+  "success": false,
+  "addedCount": 1,
+  "failedMusicIds": [99, 100],
+  "message": "部分音乐未能收藏（已存在或收藏失败），失败数量: 2"
 }
 ```
 

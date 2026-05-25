@@ -257,17 +257,57 @@ Content-Type: application/json
 ```
 
 **请求体:**
+
+音乐 ID 二选一或可同时使用（会合并后按顺序 **去重** 再依次收藏）：
+
+- `musicId`：单个音乐 ID（与旧版客户端兼容）
+- `musicIds`：整数数组，一次收藏多首
+
+至少需在合并去重后得到 **至少一个** 音乐 ID，否则返回 `400`。
+
 ```json
 {
-  "musicId": 1  // 音乐 ID
+  "musicId": 1
 }
 ```
 
-**响应示例:**
+批量收藏示例：
+
+```json
+{
+  "musicIds": [1, 2, 3]
+}
+```
+
+也可同时传 `musicId` 与 `musicIds`（重复 ID 只会收藏一次）。
+
+**响应示例（成功，单首）:**
 ```json
 {
   "success": true,
+  "addedCount": 1,
   "message": "收藏成功"
+}
+```
+
+**响应示例（成功，多首）:**
+```json
+{
+  "success": true,
+  "addedCount": 3,
+  "message": "已收藏 3 首音乐"
+}
+```
+
+**响应示例（部分失败，HTTP 400）:**  
+当部分 ID 已在收藏中（`INSERT IGNORE` 跳过）时，已成功收藏的仍会保留；响应包含未成功的 ID 列表。
+
+```json
+{
+  "success": false,
+  "addedCount": 1,
+  "failedMusicIds": [99, 100],
+  "message": "部分音乐未能收藏（已存在或收藏失败），失败数量: 2"
 }
 ```
 
