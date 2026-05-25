@@ -1062,22 +1062,63 @@ Content-Type: application/json
 ```
 
 **请求体:**
+
+`playlistId` 必填。音乐 ID 二选一或可同时使用（会合并后按顺序 **去重** 再依次添加）：
+
+- `musicId`：单个音乐 ID（与旧版客户端兼容）
+- `musicIds`：整数数组，一次添加多首
+
+至少需在合并去重后得到 **至少一个** 音乐 ID，否则返回 `400`。
+
 ```json
 {
-  "playlistId": 1,  // 歌单 ID (必填)
-  "musicId": 1      // 音乐 ID (必填)
+  "playlistId": 1,
+  "musicId": 1
 }
 ```
 
-**响应示例（成功）:**
+批量添加示例：
+
+```json
+{
+  "playlistId": 1,
+  "musicIds": [1, 2, 3]
+}
+```
+
+也可同时传 `musicId` 与 `musicIds`（重复 ID 只会添加一次）。
+
+**响应示例（成功，单首）:**
 ```json
 {
   "success": true,
+  "addedCount": 1,
   "message": "音乐添加到歌单成功"
 }
 ```
 
-**响应示例（失败）:**
+**响应示例（成功，多首）:**
+```json
+{
+  "success": true,
+  "addedCount": 3,
+  "message": "已向歌单添加 3 首音乐"
+}
+```
+
+**响应示例（部分失败，HTTP 400）:**  
+当请求中部分 ID 已在歌单中或添加失败时，已成功添加的仍会生效；响应包含未成功的 ID 列表。
+
+```json
+{
+  "success": false,
+  "addedCount": 1,
+  "failedMusicIds": [99, 100],
+  "message": "部分音乐未能添加到歌单（已存在或添加失败），失败数量: 2"
+}
+```
+
+**响应示例（全部失败）:**
 ```json
 {
   "success": false,
@@ -1095,8 +1136,9 @@ Content-Type: application/json
 
 **说明:**
 - 只有歌单的创建者才能添加音乐到歌单
-- 如果音乐已存在于歌单中，会返回失败
-- 音乐会自动添加到歌单**最上面**（position = 1，其他音乐position + 1）
+- 若传入的某个 ID 已在歌单中或添加失败，接口返回 `400`，`failedMusicIds` 列出失败的 ID；此前已成功添加的曲目不会回滚
+- `musicIds` 必须是 JSON 数组，否则会返回 `400` 及相应提示
+- 每首音乐会自动添加到歌单**最上面**（position = 1）；批量时按去重后的顺序逐首添加，与逐次调用单首添加效果一致（数组中**靠后的 ID** 最终在列表更靠前）
 - 添加成功后会自动更新歌单的 `musicCount` 字段
 
 ### 9. 从歌单中移除音乐
@@ -2129,9 +2171,12 @@ async function getPlaylistMusic(playlistId) {
 
 ### 添加音乐到歌单
 
+`musicIds` 可为单个数字或数字数组；请求体使用 `musicIds` 数组与后端批量语义一致（也可继续只传 `musicId`）。
+
 ```javascript
-async function addMusicToPlaylist(playlistId, musicId) {
+async function addMusicToPlaylist(playlistId, musicIds) {
   const token = localStorage.getItem('userToken');
+  const ids = Array.isArray(musicIds) ? musicIds : [musicIds];
 
   const response = await fetch('https://music.cnmsb.xin/api/user/playlist/music/add', {
     method: 'POST',
@@ -2141,20 +2186,17 @@ async function addMusicToPlaylist(playlistId, musicId) {
     },
     body: JSON.stringify({
       playlistId: playlistId,
-      musicId: musicId
+      musicIds: ids
     })
   });
 
   const data = await response.json();
   if (data.success) {
-    console.log('音乐添加到歌单成功');
-    // 可以在这里刷新歌单内容
-  } else if (data.message === '无权限修改此歌单') {
-    alert('您没有权限修改此歌单');
-  } else if (data.message.includes('音乐已存在于歌单中')) {
-    alert('音乐已存在于歌单中');
+    console.log('添加成功', data.addedCount, data.message);
+  } else if (data.failedMusicIds) {
+    console.warn('部分未添加', data.failedMusicIds, data.message);
   } else {
-    console.error('音乐添加到歌单失败:', data.message);
+    console.error('添加失败:', data.message);
   }
   return data;
 }

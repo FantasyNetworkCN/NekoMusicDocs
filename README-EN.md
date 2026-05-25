@@ -1060,26 +1060,61 @@ Content-Type: application/json
 ```
 
 **Request Body:**
+
+`playlistId` is required. Music IDs can be supplied in either or both of the following ways (values are **merged**, then **deduplicated** while preserving first-seen order, then added one by one):
+
+- `musicId`: a single music ID (backward compatible with older clients)
+- `musicIds`: an array of integers to add multiple tracks in one request
+
+After merge and deduplication there must be **at least one** music ID, otherwise the API returns `400`.
+
 ```json
 {
-  "playlistId": 1,  // Playlist ID (required)
-  "musicId": 1      // Music ID (required)
+  "playlistId": 1,
+  "musicId": 1
 }
 ```
 
-**Response Example (Success):**
+Batch example:
+
+```json
+{
+  "playlistId": 1,
+  "musicIds": [1, 2, 3]
+}
+```
+
+You may send both `musicId` and `musicIds`; duplicate IDs are only added once.
+
+**Response Example (Success, single track):**
 ```json
 {
   "success": true,
-  "message": "Music added to playlist successfully"
+  "addedCount": 1,
+  "message": "音乐添加到歌单成功"
 }
 ```
 
-**Response Example (Failure):**
+**Response Example (Success, multiple tracks):**
+```json
+{
+  "success": true,
+  "addedCount": 3,
+  "message": "已向歌单添加 3 首音乐"
+}
+```
+
+*(The `message` field is returned in Chinese by the server.)*
+
+**Response Example (Partial failure, HTTP 400):**  
+If some IDs are already in the playlist or cannot be added, tracks already added in the same request stay added. The response lists IDs that failed.
+
 ```json
 {
   "success": false,
-  "message": "Failed to add music to playlist or music already exists in playlist"
+  "addedCount": 1,
+  "failedMusicIds": [99, 100],
+  "message": "部分音乐未能添加到歌单（已存在或添加失败），失败数量: 2"
 }
 ```
 
@@ -1087,14 +1122,15 @@ Content-Type: application/json
 ```json
 {
   "success": false,
-  "message": "No permission to modify this playlist"
+  "message": "无权限修改此歌单"
 }
 ```
 
 **Notes:**
 - Only the playlist creator can add music to the playlist
-- If music already exists in the playlist, it will return failure
-- Music is automatically added to the **top** of the playlist (position = 1, other music positions + 1)
+- If some IDs fail, the API returns `400` with `failedMusicIds`; successful adds in the same request are not rolled back
+- `musicIds` must be a JSON array, otherwise `400` is returned
+- Each track is inserted at the **top** (position = 1); batch adds run in deduplicated order, same as repeated single-add calls (IDs **later** in the array end up closer to the top)
 - After successful addition, the playlist's `musicCount` field is automatically updated
 
 ### 9. Remove Music from Playlist
@@ -2128,9 +2164,12 @@ async function getPlaylistMusic(playlistId) {
 
 ### Add Music to Playlist
 
+Use a `musicIds` array for batch add (you can still send a single `musicId` for backward compatibility).
+
 ```javascript
-async function addMusicToPlaylist(playlistId, musicId) {
+async function addMusicToPlaylist(playlistId, musicIds) {
   const token = localStorage.getItem('userToken');
+  const ids = Array.isArray(musicIds) ? musicIds : [musicIds];
 
   const response = await fetch('https://music.cnmsb.xin/api/user/playlist/music/add', {
     method: 'POST',
@@ -2140,20 +2179,17 @@ async function addMusicToPlaylist(playlistId, musicId) {
     },
     body: JSON.stringify({
       playlistId: playlistId,
-      musicId: musicId
+      musicIds: ids
     })
   });
 
   const data = await response.json();
   if (data.success) {
-    console.log('Music added to playlist successfully');
-    // You can refresh the playlist content here
-  } else if (data.message === 'No permission to modify this playlist') {
-    alert('You do not have permission to modify this playlist');
-  } else if (data.message.includes('music already exists in playlist')) {
-    alert('Music already exists in playlist');
+    console.log('Added', data.addedCount, data.message);
+  } else if (data.failedMusicIds) {
+    console.warn('Partial failure', data.failedMusicIds, data.message);
   } else {
-    console.error('Failed to add music to playlist:', data.message);
+    console.error('Add failed:', data.message);
   }
   return data;
 }
