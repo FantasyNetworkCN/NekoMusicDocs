@@ -1349,8 +1349,8 @@ Two modes on the same endpoint. Use **`query` OR `items`**, not both.
 ```
 
 **Notes:**
-- Fuzzy match on title, artist, album, and pinyin columns; up to ~50 results by relevance
-- If local DB has no match and `netease_search_fill` is enabled, may ingest **one** track from NetEase
+- Fuzzy match within the music library on title, artist, album, and pinyin columns; up to ~50 results by relevance
+- Returns `results: null` when nothing matches
 
 **Response Example (found):**
 ```json
@@ -1380,25 +1380,6 @@ Two modes on the same endpoint. Use **`query` OR `items`**, not both.
 }
 ```
 
-**Response Example (NetEase fill succeeded):**
-```json
-{
-  "success": true,
-  "message": "Search successful (ingested from NetEase)",
-  "results": [
-    {
-      "id": 42,
-      "title": "STAY WIT ME",
-      "artist": "TRYBEL BAND",
-      "album": "Unknown Album",
-      "duration": 200,
-      "uploadUserId": 0,
-      "createdAt": "2026-05-24 10:00:00.0"
-    }
-  ]
-}
-```
-
 #### Mode B: Batch exact search (title + artist)
 
 **Request Body:**
@@ -1418,16 +1399,16 @@ Two modes on the same endpoint. Use **`query` OR `items`**, not both.
 | `items[].title` | Required, non-empty after trim |
 | `items[].artist` | Optional; exact title+artist match when present |
 
-**Match rules:**
-- With `artist`: exact title and artist (simplified Chinese normalized); multiple hits → highest `id`
-- Without `artist`: exact title only if **unique** artist for that title; else `null` for that slot
-- Per-item NetEase fill when local miss and fill is enabled
+**Match rules (per item, library only):**
+1. **Exact**: title+artist when `artist` is set; title-only when exactly one artist exists for that title
+2. **Best match**: if exact misses, score candidates in the library (multi-artist segments, parenthetical notes stripped, etc.)
+3. If still no qualifying match, that slot is `null`
 
 **Response Example (partial hits):**
 ```json
 {
   "success": true,
-  "message": "Search successful (2/3 found, 1 ingested from NetEase)",
+  "message": "Search successful (2/3 found)",
   "results": [
     {
       "id": 1,
