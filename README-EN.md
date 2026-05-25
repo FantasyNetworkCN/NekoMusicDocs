@@ -4,7 +4,7 @@ Chinese Documentation: [中文 API 文档](README.md)
 
 ### Using this API requires compliance with this project's LICENSE agreement. You must open source and retain the Neko Music attribution and source code link!
 
-#### Last Updated(yyyy/mm/dd): 2026/5/22
+#### Last Updated(yyyy/mm/dd): 2026/5/24
 
 ## Overview
 
