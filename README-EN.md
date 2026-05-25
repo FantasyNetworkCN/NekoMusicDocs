@@ -1252,39 +1252,113 @@ Public endpoints are for **displaying** current membership packages and prices o
 
 **Endpoint:** `POST /api/music/search`
 
+**No login required**
+
 **Request Headers:**
 ```
 Content-Type: application/json
 ```
 
+Two modes on the same endpoint. Use **`query` OR `items`**, not both.
+
+#### Mode A: Fuzzy search (single keyword)
+
 **Request Body:**
 ```json
 {
-  "query": "string",  // Search keyword
-  "page": 1,          // Page number (optional, default is 1)
-  "pageSize": 20      // Items per page (optional, default is 20)
+  "query": "晴天"
 }
 ```
 
-**Response Example:**
+**Notes:**
+- Fuzzy match on title, artist, album, and pinyin columns; up to ~50 results by relevance
+- If local DB has no match and `netease_search_fill` is enabled, may ingest **one** track from NetEase
+
+**Response Example (found):**
 ```json
 {
   "success": true,
-  "data": {
-    "total": 100,
-    "page": 1,
-    "pageSize": 20,
-    "results": [
-      {
-        "id": 1,
-        "title": "Song Title",
-        "artist": "Artist",
-        "album": "Album",
-        "duration": 180,
-        "coverUrl": "/api/music/cover/1"
-      }
-    ]
-  }
+  "message": "Search successful",
+  "results": [
+    {
+      "id": 1,
+      "title": "晴天",
+      "artist": "周杰伦",
+      "album": "叶惠美",
+      "duration": 269,
+      "uploadUserId": 0,
+      "createdAt": "2024-01-01 12:00:00.0"
+    }
+  ]
+}
+```
+
+**Response Example (not found):**
+```json
+{
+  "success": false,
+  "message": "No matching music found",
+  "results": null
+}
+```
+
+#### Mode B: Batch exact search (title + artist)
+
+**Request Body:**
+```json
+{
+  "items": [
+    { "title": "晴天", "artist": "周杰伦" },
+    { "title": "STAY WIT ME", "artist": "TRYBEL BAND" },
+    { "title": "Title only" }
+  ]
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `items` | Required; length unlimited; `results[i]` maps to `items[i]` |
+| `items[].title` | Required, non-empty after trim |
+| `items[].artist` | Optional; exact title+artist match when present |
+
+**Match rules:**
+- With `artist`: exact title and artist (simplified Chinese normalized); multiple hits → highest `id`
+- Without `artist`: exact title only if **unique** artist for that title; else `null` for that slot
+- Per-item NetEase fill when local miss and fill is enabled
+
+**Response Example (partial hits):**
+```json
+{
+  "success": true,
+  "message": "Search successful (2/3 found, 1 ingested from NetEase)",
+  "results": [
+    { "id": 1, "title": "晴天", "artist": "周杰伦", "album": "叶惠美", "duration": 269, "uploadUserId": 0, "createdAt": "2024-01-01 12:00:00.0" },
+    null,
+    { "id": 42, "title": "STAY WIT ME", "artist": "TRYBEL BAND", "album": "Unknown", "duration": 200, "uploadUserId": 0, "createdAt": "2026-05-24 10:00:00.0" }
+  ]
+}
+```
+
+#### Music object fields (both modes)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | number | Music ID |
+| `title` | string | Title |
+| `artist` | string | Artist |
+| `album` | string | Album |
+| `duration` | number | Duration in seconds |
+| `uploadUserId` | number | Uploader user ID, 0 if none |
+| `createdAt` | string | Created timestamp |
+
+**Media URLs (client builds from `id`; no path fields in response):**
+- Audio: `GET /api/music/file/{id}`
+- Cover: `GET /api/music/cover/{id}`
+
+**Bad request (400):**
+```json
+{
+  "error": "Request format error: query and items cannot be provided together"
 }
 ```
 
@@ -1706,19 +1780,40 @@ async function login(username, password) {
 }
 ```
 
-### Search Music
+### Search Music (fuzzy)
 
 ```javascript
-async function searchMusic(query, page = 1, pageSize = 20) {
+async function searchMusic(query) {
   const response = await fetch('https://music.cnmsb.xin/api/music/search', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ query, page, pageSize })
+    body: JSON.stringify({ query })
   });
 
-  return await response.json();
+  const data = await response.json();
+  // data.results: Music[] | null
+  // Cover/audio: `/api/music/cover/${id}`, `/api/music/file/${id}`
+  return data;
+}
+```
+
+### Batch exact search
+
+```javascript
+async function searchMusicBatch(items) {
+  const response = await fetch('https://music.cnmsb.xin/api/music/search', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ items })
+  });
+
+  const data = await response.json();
+  // data.results.length === items.length; null slot = not found
+  return data;
 }
 ```
 
@@ -1814,9 +1909,8 @@ async function searchArtists(query) {
     console.log(`Music count: ${artist.musicCount}`);
     console.log(`Music list:`, artist.musicList);
     // artist.musicList is an array containing all music by this artist
-    // Each music includes:
-    // - id, title, artist, album, duration
-    // - coverPath, filePath, fileFormat, language
+    // Each music: id, title, artist, album, duration, fileFormat, language
+    // Cover/audio: /api/music/cover/{id}, /api/music/file/{id}
   } else {
     console.error('Search artist failed:', data.message);
   }
@@ -2299,8 +2393,6 @@ Content-Type: application/json
         "artist": "Jay Chou",
         "album": "Qi Li Xiang",
         "duration": 298,
-        "coverPath": "/path/to/cover1.jpg",
-        "filePath": "/path/to/music1.mp3",
         "fileFormat": "mp3",
         "language": "Chinese"
       },
@@ -2310,8 +2402,6 @@ Content-Type: application/json
         "artist": "Jay Chou",
         "album": "Ye Hui Mei",
         "duration": 269,
-        "coverPath": "/path/to/cover2.jpg",
-        "filePath": "/path/to/music2.mp3",
         "fileFormat": "mp3",
         "language": "Chinese"
       }
@@ -2348,7 +2438,7 @@ Content-Type: application/json
 - Search uses fuzzy matching with `LIKE %keyword%`
 - Uses POST method with parameters in request body
 - Only returns the first matched artist (artist with the most music)
-- Returned music list includes complete music information, including cover, file path, etc.
+- Music list does not include `filePath` or `coverPath`; use `id` with `/api/music/cover/{id}` and `/api/music/file/{id}`
 
 **Use Cases:**
 - Users search for artists to view all their music

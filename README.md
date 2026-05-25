@@ -1251,39 +1251,157 @@ Content-Type: application/json
 
 **端点:** `POST /api/music/search`
 
+**无需登录**
+
 **请求头:**
 ```
 Content-Type: application/json
 ```
 
+同一端点支持两种模式，**`query` 与 `items` 二选一**，不可同时提供。
+
+#### 模式 A：模糊搜索（单关键词）
+
 **请求体:**
 ```json
 {
-  "query": "string",  // 搜索关键词
-  "page": 1,          // 页码 (可选，默认为 1)
-  "pageSize": 20      // 每页数量 (可选，默认为 20)
+  "query": "晴天"
 }
 ```
 
-**响应示例:**
+**说明:**
+- 在标题、歌手、专辑及拼音列中模糊匹配，按相关度排序，最多返回约 50 条
+- 本地无结果且服务端开启 `netease_search_fill` 时，会尝试从网易云补全 **1** 首并入库
+
+**响应示例（有结果）:**
 ```json
 {
   "success": true,
-  "data": {
-    "total": 100,
-    "page": 1,
-    "pageSize": 20,
-    "results": [
-      {
-        "id": 1,
-        "title": "歌曲标题",
-        "artist": "艺术家",
-        "album": "专辑",
-        "duration": 180,
-        "coverUrl": "/api/music/cover/1"
-      }
-    ]
-  }
+  "message": "搜索成功",
+  "results": [
+    {
+      "id": 1,
+      "title": "晴天",
+      "artist": "周杰伦",
+      "album": "叶惠美",
+      "duration": 269,
+      "uploadUserId": 0,
+      "createdAt": "2024-01-01 12:00:00.0"
+    }
+  ]
+}
+```
+
+**响应示例（无结果）:**
+```json
+{
+  "success": false,
+  "message": "未找到匹配的音乐",
+  "results": null
+}
+```
+
+**响应示例（网易云补全成功）:**
+```json
+{
+  "success": true,
+  "message": "搜索成功（已从网易云补全入库）",
+  "results": [
+    {
+      "id": 42,
+      "title": "STAY WIT ME",
+      "artist": "TRYBEL BAND",
+      "album": "未知专辑",
+      "duration": 200,
+      "uploadUserId": 0,
+      "createdAt": "2026-05-24 10:00:00.0"
+    }
+  ]
+}
+```
+
+#### 模式 B：批量精确搜索（歌名 + 歌手）
+
+**请求体:**
+```json
+{
+  "items": [
+    { "title": "晴天", "artist": "周杰伦" },
+    { "title": "STAY WIT ME", "artist": "TRYBEL BAND" },
+    { "title": "某首仅歌名" }
+  ]
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| `items` | 必填，数组长度不限；顺序与返回的 `results` 一一对应 |
+| `items[].title` | 必填，歌名（trim 后非空） |
+| `items[].artist` | 可选；有则按歌名+歌手精确匹配（繁简归一） |
+
+**匹配规则:**
+- 有 `artist`：歌名、歌手同时精确匹配；多条命中取 **id 最大**（最新入库）
+- 无 `artist`：仅歌名精确匹配，且库内该标题下 **只能有一个歌手**，否则该条为 `null`
+- 每条本地未命中且开启网易云补全时，**按条**尝试补全
+
+**响应示例（部分命中）:**
+```json
+{
+  "success": true,
+  "message": "搜索成功（2/3 已找到，1 条已从网易云补全入库）",
+  "results": [
+    {
+      "id": 1,
+      "title": "晴天",
+      "artist": "周杰伦",
+      "album": "叶惠美",
+      "duration": 269,
+      "uploadUserId": 0,
+      "createdAt": "2024-01-01 12:00:00.0"
+    },
+    null,
+    {
+      "id": 42,
+      "title": "STAY WIT ME",
+      "artist": "TRYBEL BAND",
+      "album": "未知专辑",
+      "duration": 200,
+      "uploadUserId": 0,
+      "createdAt": "2026-05-24 10:00:00.0"
+    }
+  ]
+}
+```
+
+**响应示例（全部未命中）:**
+```json
+{
+  "success": false,
+  "message": "未找到匹配的音乐",
+  "results": [null, null]
+}
+```
+
+#### 音乐对象字段（两种模式相同）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | number | 音乐 ID |
+| `title` | string | 标题 |
+| `artist` | string | 歌手 |
+| `album` | string | 专辑 |
+| `duration` | number | 时长（秒） |
+| `uploadUserId` | number | 上传用户 ID，无则为 0 |
+| `createdAt` | string | 入库时间 |
+
+**资源 URL（由客户端按 `id` 拼接，响应中不再返回路径字段）:**
+- 音频：`GET /api/music/file/{id}`
+- 封面：`GET /api/music/cover/{id}`
+
+**错误请求（400）:**
+```json
+{
+  "error": "请求格式错误: query 与 items 不能同时提供"
 }
 ```
 
@@ -1707,19 +1825,43 @@ async function login(username, password) {
 }
 ```
 
-### 搜索音乐
+### 搜索音乐（模糊）
 
 ```javascript
-async function searchMusic(query, page = 1, pageSize = 20) {
+async function searchMusic(query) {
   const response = await fetch('https://music.cnmsb.xin/api/music/search', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ query, page, pageSize })
+    body: JSON.stringify({ query })
   });
-  
-  return await response.json();
+
+  const data = await response.json();
+  // data.results: Music[] | null
+  // 封面/音频: `/api/music/cover/${id}`, `/api/music/file/${id}`
+  return data;
+}
+```
+
+### 批量精确搜索音乐
+
+```javascript
+async function searchMusicBatch(items) {
+  const response = await fetch('https://music.cnmsb.xin/api/music/search', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      items: items // [{ title: '晴天', artist: '周杰伦' }, ...]
+    })
+  });
+
+  const data = await response.json();
+  // data.results.length === items.length
+  // data.results[i] 对应 items[i]，未找到为 null
+  return data;
 }
 ```
 
@@ -1815,9 +1957,8 @@ async function searchArtists(query) {
     console.log(`音乐数量: ${artist.musicCount}`);
     console.log(`音乐列表:`, artist.musicList);
     // artist.musicList 是一个数组，包含该歌手的所有音乐
-    // 每首音乐包含：
-    // - id, title, artist, album, duration
-    // - fileFormat, language
+    // 每首音乐包含：id, title, artist, album, duration, fileFormat, language
+    // 封面/音频请用 id 拼接：/api/music/cover/{id}、/api/music/file/{id}
   } else {
     console.error('搜索歌手失败:', data.message);
   }
@@ -2346,7 +2487,7 @@ Content-Type: application/json
 - 搜索是模糊匹配，使用 `LIKE %keyword%`
 - 使用 POST 方式，参数在请求体中传递
 - 只返回匹配到的第一个歌手（音乐数量最多的歌手）
-- 返回的音乐列表包含完整的音乐信息，包括封面、文件路径等
+- 返回的音乐列表不含 `filePath`、`coverPath`；封面与音频请用 `id` 访问 `/api/music/cover/{id}`、`/api/music/file/{id}`
 
 **使用场景:**
 - 用户搜索歌手以查看该歌手的所有音乐
