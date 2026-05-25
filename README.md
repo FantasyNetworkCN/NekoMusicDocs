@@ -2487,6 +2487,7 @@ Content-Type: application/json
 - 搜索是模糊匹配，使用 `LIKE %keyword%`
 - 使用 POST 方式，参数在请求体中传递
 - 只返回匹配到的第一个歌手（音乐数量最多的歌手）
+- 返回的音乐列表不含 `filePath`、`coverPath`；封面与音频请用 `id` 访问 `/api/music/cover/{id}`、`/api/music/file/{id}`
 
 **使用场景:**
 - 用户搜索歌手以查看该歌手的所有音乐

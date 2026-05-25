@@ -4,7 +4,7 @@ Chinese Documentation: [中文 API 文档](README.md)
 
 ### Using this API requires compliance with this project's LICENSE agreement. You must open source and retain the Neko Music attribution and source code link!
 
-#### Last Updated(yyyy/mm/dd): 2026/5/24
+#### Last Updated (yyyy/mm/dd): 2026/5/24
 
 ## Overview
 
@@ -1302,6 +1302,25 @@ Two modes on the same endpoint. Use **`query` OR `items`**, not both.
 }
 ```
 
+**Response Example (NetEase fill succeeded):**
+```json
+{
+  "success": true,
+  "message": "Search successful (ingested from NetEase)",
+  "results": [
+    {
+      "id": 42,
+      "title": "STAY WIT ME",
+      "artist": "TRYBEL BAND",
+      "album": "Unknown Album",
+      "duration": 200,
+      "uploadUserId": 0,
+      "createdAt": "2026-05-24 10:00:00.0"
+    }
+  ]
+}
+```
+
 #### Mode B: Batch exact search (title + artist)
 
 **Request Body:**
@@ -1332,10 +1351,35 @@ Two modes on the same endpoint. Use **`query` OR `items`**, not both.
   "success": true,
   "message": "Search successful (2/3 found, 1 ingested from NetEase)",
   "results": [
-    { "id": 1, "title": "晴天", "artist": "周杰伦", "album": "叶惠美", "duration": 269, "uploadUserId": 0, "createdAt": "2024-01-01 12:00:00.0" },
+    {
+      "id": 1,
+      "title": "晴天",
+      "artist": "周杰伦",
+      "album": "叶惠美",
+      "duration": 269,
+      "uploadUserId": 0,
+      "createdAt": "2024-01-01 12:00:00.0"
+    },
     null,
-    { "id": 42, "title": "STAY WIT ME", "artist": "TRYBEL BAND", "album": "Unknown", "duration": 200, "uploadUserId": 0, "createdAt": "2026-05-24 10:00:00.0" }
+    {
+      "id": 42,
+      "title": "STAY WIT ME",
+      "artist": "TRYBEL BAND",
+      "album": "Unknown Album",
+      "duration": 200,
+      "uploadUserId": 0,
+      "createdAt": "2026-05-24 10:00:00.0"
+    }
   ]
+}
+```
+
+**Response Example (all missed):**
+```json
+{
+  "success": false,
+  "message": "No matching music found",
+  "results": [null, null]
 }
 ```
 
@@ -1808,11 +1852,14 @@ async function searchMusicBatch(items) {
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ items })
+    body: JSON.stringify({
+      items: items // [{ title: '晴天', artist: '周杰伦' }, ...]
+    })
   });
 
   const data = await response.json();
-  // data.results.length === items.length; null slot = not found
+  // data.results.length === items.length
+  // data.results[i] maps to items[i]; null = not found
   return data;
 }
 ```
