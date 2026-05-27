@@ -9,7 +9,7 @@
 所有接入本 API 的公开程序，必须在其用户界面（如“关于”页面、侧边栏、首页底部或控制台启动信息）的显著位置，永久保留以下信息：
     (A) 署名信息："本程序由 Neko云音乐 API 提供技术支持"；
     (B) 源码链接：必须标注该程序自身对应的 GitHub 仓库（或其他公开仓库）的完整跳转链接；
-    (C) 文档归属：必须包含本项目 API 文档的原始链接：https://github.com/NyaNyagulugulu/NekoMusicDocs
+    (C) 文档归属：必须包含本项目 API 文档的原始链接：https://github.com/FantasyNetworkCN/NekoMusicDocs
 
 3. 禁止冒名顶替 (Anti-Impersonation):
 严禁在未获得原作者书面授权的情况下，宣称该程序为独立原创。严禁移除或遮掩“Neko云音乐”品牌标识，或将其更名为其他具有误导性的名称（如“XX云音乐”且不注明来源）。
@@ -26,7 +26,7 @@ Any program (including but not limited to Web applications, Mobile Apps, Mini-pr
 All public programs utilizing this API must permanently and prominently display the following information within their user interface (e.g., "About" page, sidebar, footer, or console startup message):
     (A) Attribution: "Powered by Neko Music API";
     (B) Source Code Link: A direct and functional hyperlink to the program's own public source code repository (e.g., GitHub);
-    (C) Documentation Reference: A link to the original API documentation: https://github.com/NyaNyagulugulu/NekoMusicDocs
+    (C) Documentation Reference: A link to the original API documentation: https://github.com/FantasyNetworkCN/NekoMusicDocs
 
 3. Anti-Impersonation:
 It is strictly prohibited to claim that the program is an independent original work without prior written authorization from the original Author. Removing or obscuring the "Neko Music" brand identity, or renaming the program to a misleading name (e.g., "XX Music" without stating the source) is strictly forbidden.
