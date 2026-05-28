@@ -1,10 +1,8 @@
 # Neko云音乐 API 文档
 
-English Documentation: [English API doc.md](README-EN.md)
-
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko云音乐 署名及源码链接！
 
-#### 更新时间 2026年5月24日
+#### 更新时间 2026年5月28日
 ## 概述
 
 Neko云音乐提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -462,7 +460,50 @@ Authorization: <token>
 - 只有收藏过该歌单的用户才能查看歌单内的音乐
 - 音乐按 position 字段升序排列
 
-### 14. 上传用户头像
+### 14. 获取每日推荐
+
+**端点:** `GET /api/user/recommendations/daily`
+
+**请求头:**
+```
+Authorization: <token>
+```
+
+**说明:**
+- 该接口返回当前用户“今日推荐”列表。
+- 推荐结果每日更新一次（UTC+8 每日 00:00）。
+- 推荐列表中的歌曲保证为**未收藏**歌曲（不会推荐用户已收藏曲目）。
+
+**响应示例:**
+```json
+{
+  "success": true,
+  "date": "2026-05-28",
+  "count": 30,
+  "data": [
+    {
+      "rank": 1,
+      "musicId": 13751,
+      "title": "天使ロード中…^_−☆",
+      "artist": "三Z-STUDIO&HOYO-MiX",
+      "album": "绝区零-天使加载中…^_−☆",
+      "language": "日语",
+      "tags": "二次元，日语，游戏",
+      "score": 4.93,
+      "source": "ai",
+      "reason": "与近期收藏艺人和标签更匹配"
+    }
+  ]
+}
+```
+
+**字段说明:**
+- `date`: 推荐结果所属日期（东八区）
+- `count`: 返回条数
+- `source`: 推荐来源（`ai` 或 `rule`）
+- `reason`: 推荐理由（用于前端展示）
+
+### 15. 上传用户头像
 
 **端点:** `POST /api/user/avatar/upload`
 
@@ -501,7 +542,7 @@ Content-Type: multipart/form-data
 }
 ```
 
-### 15. 用户上传音乐
+### 16. 用户上传音乐
 
 **端点:** `POST /api/user/upload`
 
@@ -611,7 +652,7 @@ formData.append('lyricsFile', lyricsFileObject); // 可选
 uploadMusic(formData);
 ```
 
-### 16. 修改用户密码
+### 17. 修改用户密码
 
 **端点:** `POST /api/user/password/change`
 
@@ -660,7 +701,7 @@ Content-Type: application/json
 }
 ```
 
-### 17. 获取用户上传审核通过的音乐
+### 18. 获取用户上传审核通过的音乐
 
 **端点:** `GET /api/user/uploaded-music`
 
