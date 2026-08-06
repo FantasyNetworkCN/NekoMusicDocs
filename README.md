@@ -1333,7 +1333,7 @@ Content-Type: application/json
 
 ## VIP 与价目 API
 
-公开接口仅用于**展示**当前在售会员套餐与时长价格。会员开通、支付请在站内「会员中心」完成；支付与后台维护接口不在本文档公开范围。
+公开接口用于**展示**当前在售会员套餐与时长价格；会员开通请在站内「会员中心」完成。下方补充了客户端实际使用的购买下单接口，后台管理接口不在本文档公开范围。
 
 ### 1. 查询 VIP 价目表（无需登录）
 
@@ -1364,6 +1364,44 @@ Content-Type: application/json
 | `priceYuan` | 价格（人民币元） |
 | `sortOrder` | 展示顺序（数值越小越靠前，以服务端为准） |
 | `updatedAt` | 该行最近更新时间（东八区 ISO-8601 带偏移） |
+
+### 2. 发起 VIP 购买（需登录）
+
+**端点:** `POST /api/vip/pay/create`
+
+**认证:** 需要登录，`Authorization: <token>`
+
+**请求头:**
+```http
+Content-Type: application/json
+```
+
+**请求体示例:**
+```json
+{
+  "pricingId": 1,
+  "payType": "alipay"
+}
+```
+
+**字段说明:**
+
+| 字段 | 说明 |
+|------|------|
+| `pricingId` | 价目表中的套餐 ID，必填 |
+| `payType` | 支付方式，可选，支持 `alipay` / `wxpay`，默认 `alipay` |
+
+**响应示例:**
+```json
+{
+  "success": true,
+  "data": {
+    "outTradeNo": "VIP202605301234567890",
+    "payurl": "https://...",
+    "qrcode": "https://..."
+  }
+}
+```
 
 **会员状态字段（用户侧）:** 登录接口 `data.user` 与 `GET /api/user/playlists` 响应根级均含 `isVip`、`vipExpiresAt`，含义一致，便于客户端展示与刷新。
 
@@ -2487,7 +2525,8 @@ async function getFavoritePlaylistMusic(playlistId) {
 8. **VIP 与会员:**
    - 用户登录响应 `data.user` 中含 `isVip`、`vipExpiresAt`（与歌单列表根级字段含义一致）。
    - `GET /api/user/playlists` 响应根级含 `isVip`、`vipExpiresAt`，便于未再次登录时刷新会员状态。
-   - `GET /api/vip/pricing` 公开读取价目表（无需登录）；支付与后台维护不在公开 API 文档中说明。
+   - `GET /api/vip/pricing` 公开读取价目表（无需登录）。
+   - `POST /api/vip/pay/create` 需要登录，用于根据 `pricingId` 发起 VIP 购买并返回收银台地址或二维码。
 9. **忘记密码:**
    - `POST /api/user/send-reset-code` 向邮箱发送验证码。
    - `POST /api/user/reset-password` 验证码通过后重置密码。
