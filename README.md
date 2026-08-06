@@ -1542,7 +1542,7 @@ Content-Type: application/json
 **路径参数:**
 - `id`: 音乐 ID
 
-**响应:** 音频文件 (MP3)
+**响应:** 音频文件 (响应标头content-type返回媒体格式，例如audio/flac)
 
 ### 4. 获取音乐封面
 
