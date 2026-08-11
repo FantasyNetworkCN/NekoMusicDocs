@@ -89,7 +89,7 @@ Content-Type: application/json
 **请求体:**
 ```json
 {
-  "username": "string",  // 用户名或邮箱
+  "username": "string",  // 邮箱
   "password": "string"   // 密码
 }
 ```
