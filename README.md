@@ -18,6 +18,7 @@ Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用�
 - [歌手相关 API](#歌手相关-api)
 - [VIP 与价目 API](#vip-与价目-api)
 - [音乐相关 API](#音乐相关-api)
+- [听歌识曲 API](#听歌识曲-api)
 - [分享视频渲染 API](#分享视频渲染-api)
 - [错误码说明](#错误码说明)
 
@@ -1591,7 +1592,89 @@ Content-Type: application/json
 
 **响应:** 图片文件 (PNG/JPG)
 
-### 5. 获取歌词
+### 5. 听歌识曲
+
+根据一段短录音，在 NekoMusic 自有曲库中匹配歌曲。该接口完全在本站服务端完成声纹提取与匹配，**不调用网易云、Shazam 或其他第三方识曲 API，也不会将录音转发到外部服务**。
+
+**端点:** `POST /api/music/recognize`
+
+**认证:** 无需登录
+
+**请求格式:** `multipart/form-data`
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `audio` | 文件 | 是 | 麦克风或本地录音文件，推荐 3–20 秒；支持 FFmpeg 可解码的音频格式 |
+
+**curl 示例:**
+
+```bash
+curl -sS -X POST 'https://music.cnmsb.xin/api/music/recognize' \
+  -F 'audio=@sample.m4a'
+```
+
+**识别成功（HTTP 200）:**
+
+```json
+{
+  "success": true,
+  "matched": true,
+  "message": "识别成功",
+  "data": {
+    "id": 1,
+    "title": "晴天",
+    "artist": "周杰伦",
+    "album": "叶惠美",
+    "duration": 269,
+    "language": "中文",
+    "tags": "",
+    "filePath": "/api/music/file/1",
+    "coverFilePath": "/api/music/cover/1",
+    "coverUrl": "/api/music/cover/1",
+    "confidence": 0.8842,
+    "matchedLandmarks": 31,
+    "offsetSeconds": 42.31,
+    "sampleDurationSeconds": 8.0
+  }
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| `confidence` | 匹配置信度，范围 `0–1`；仅返回达到服务端阈值的结果 |
+| `matchedLandmarks` | 对齐的声纹特征数量 |
+| `offsetSeconds` | 录音片段在歌曲中的估计起始位置（秒） |
+| `sampleDurationSeconds` | 服务端实际解码的录音时长 |
+
+**未匹配（HTTP 200）:**
+
+```json
+{
+  "success": true,
+  "matched": false,
+  "message": "未在当前曲库中识别到歌曲",
+  "data": null
+}
+```
+
+**错误响应:**
+
+| HTTP 状态码 | 说明 |
+|-------------|------|
+| `400` | 缺少 `audio`、音频损坏、录音过短或无法解码 |
+| `413` | 文件超过服务端配置的大小限制（默认 8 MiB） |
+| `415` | 请求不是 `multipart/form-data` |
+| `429` | 当前 IP 请求过于频繁，或识曲并发已满；可查看 `Retry-After` |
+| `503` | 声纹索引正在构建或识曲服务暂时不可用 |
+
+**曲库与索引说明:**
+
+- 只匹配本站已入库且存在于 `Music/music/{id}.*` 的歌曲，不能识别未收录的全网歌曲。
+- 首次请求或索引失效后会自动构建曲库索引，指纹缓存位于 `Music/.fingerprints/`。
+- 音乐上传、替换或自动入库后会使索引失效，下一次识曲请求自动重建。
+- 服务端配置位于 `backend/src/main/resources/config.yml` 的 `music_recognition` 节，可调整时长、大小、并发和限流。
+
+### 6. 获取歌词
 
 **端点:** `GET /api/music/lyrics/{id}`
 
