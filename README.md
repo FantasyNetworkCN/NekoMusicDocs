@@ -2,7 +2,7 @@
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko歌姬计划 署名及源码链接！
 
-#### 更新时间 2026年5月30日
+#### 更新时间 2026年9月5日
 ## 概述
 
 Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -1666,13 +1666,6 @@ curl -sS -X POST 'https://music.cnmsb.xin/api/music/recognize' \
 | `415` | 请求不是 `multipart/form-data` |
 | `429` | 当前 IP 请求过于频繁，或识曲并发已满；可查看 `Retry-After` |
 | `503` | 声纹索引正在构建或识曲服务暂时不可用 |
-
-**曲库与索引说明:**
-
-- 只匹配本站已入库且存在于 `Music/music/{id}.*` 的歌曲，不能识别未收录的全网歌曲。
-- 首次请求或索引失效后会自动构建曲库索引，指纹缓存位于 `Music/.fingerprints/`。
-- 音乐上传、替换或自动入库后会使索引失效，下一次识曲请求自动重建。
-- 服务端配置位于 `backend/src/main/resources/config.yml` 的 `music_recognition` 节，可调整时长、大小、并发和限流。
 
 ### 6. 获取歌词
 
