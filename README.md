@@ -20,6 +20,7 @@ Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用�
 - [音乐相关 API](#音乐相关-api)
 - [听歌识曲 API](#听歌识曲-api)
 - [分享视频渲染 API](#分享视频渲染-api)
+- [外部音乐导入 API](#外部音乐导入-api)
 - [错误码说明](#错误码说明)
 
 ---
@@ -1993,6 +1994,112 @@ async function downloadVideoClip(jobId, filename = 'clip.mp4') {
   URL.revokeObjectURL(url);
 }
 ```
+
+---
+
+## 外部音乐导入 API
+
+用**外部歌单 ID** 发起导入，由后端完成站外匹配，并把结果加入你指定的站内歌单，进度通过 **SSE** 实时返回。
+
+- 支持音源：网易云音乐、QQ 音乐。
+- 无论哪个平台（qq / 网易云），导入请求都**必须携带用户令牌**。
+- 必须指定导入目标：已有站内歌单 `targetPlaylistId`，或新建歌单 `targetPlaylistName`（二选一）。
+
+### 认证方式
+
+任选其一携带令牌：
+
+```
+Authorization: <token>
+Authorization: Bearer <token>
+```
+
+浏览器 `EventSource` 无法自定义请求头时，用查询参数 `?token=<token>`。未携带或令牌无效返回 `401`。
+
+### 1. 网易云歌单导入
+
+`GET|POST /loser/netease/pull`
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `playlistId` | 是 | 网易云歌单 ID |
+| `targetPlaylistId` | 二选一 | 导入到已有站内歌单，必须是本人的歌单，否则 `403` |
+| `targetPlaylistName` | 二选一 | 新建站内歌单并导入，名称不超过 255 字且不含违禁词 |
+| `token` | EventSource 场景 | 用户令牌（也可用 `Authorization` 请求头） |
+
+### 2. QQ 歌单导入
+
+`GET|POST /loser/qq/pull`
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `disstid` | 是 | QQ 歌单 ID |
+| `targetPlaylistId` | 二选一 | 导入到已有站内歌单，必须是本人的歌单，否则 `403` |
+| `targetPlaylistName` | 二选一 | 新建站内歌单并导入，名称不超过 255 字且不含违禁词 |
+| `token` | EventSource 场景 | 用户令牌（也可用 `Authorization` 请求头） |
+
+
+### 3. SSE 事件
+
+响应 `Content-Type: text/event-stream`，连接后先发送注释帧 `: connected`，随后推送：
+
+| 事件 | 载荷 |
+|------|------|
+| `start` | `{source,total,targetPlaylistId,targetPlaylistCreated}` |
+| `track` | `{index,total,source,sourceId,title,artist,status,musicId,fileUrl,playlistAdded,message}` |
+| `progress` | `{index,total,sourceId,bytes,totalBytes,percent}` |
+| `done` | `{total,imported,existed,failed}` |
+| `error` | `{message}` |
+
+- `source`：`netease` 或 `qq`；`sourceId`：网易云歌曲 ID 或 QQ 歌曲 `mid`。
+- `targetPlaylistCreated`：目标歌单是否为本次新建。
+- `status`：`downloading`（下载中）、`matching`（站外匹配中）、`imported`（本次新入库）、`existed`（已有曲目）、`failed`（失败，见 `message`）。
+- `progress` 为下载阶段进度，`percent` 为 `-1` 表示上游未返回 `Content-Length`。
+- 曲目入库后用返回的 `musicId`，通过 `GET /api/music/file/{musicId}` 播放或下载。
+
+**SSE 示例**：
+
+```
+event: start
+data: {"source":"netease","total":75,"targetPlaylistId":12,"targetPlaylistCreated":false}
+
+event: track
+data: {"index":0,"total":75,"source":"netease","sourceId":"380090690","title":"M&E","artist":"KVKS","status":"downloading","musicId":null,"fileUrl":null,"playlistAdded":false,"message":null}
+
+event: progress
+data: {"index":0,"total":75,"sourceId":"380090690","bytes":1048576,"totalBytes":5762808,"percent":18}
+
+event: track
+data: {"index":0,"total":75,"source":"netease","sourceId":"380090690","title":"M&E","artist":"KVKS","status":"imported","musicId":1234,"fileUrl":"/api/music/file/1234","playlistAdded":true,"message":null}
+
+event: done
+data: {"total":75,"imported":70,"existed":3,"failed":2}
+```
+
+**前端集成示例**：
+
+```javascript
+const token = localStorage.getItem('userToken');
+const base = 'https://music.cnmsb.xin/loser';
+
+// 方式一：导入到已有歌单（targetPlaylistId）
+const neteaseUrl = `${base}/netease/pull?playlistId=7011264340&targetPlaylistId=12&token=${encodeURIComponent(token)}`;
+// 方式二：新建歌单导入（targetPlaylistName）
+const qqUrl = `${base}/qq/pull?disstid=7011264340&targetPlaylistName=${encodeURIComponent('我的导入歌单')}&token=${encodeURIComponent(token)}`;
+
+function importPlaylist(url) {
+  const es = new EventSource(url);
+  es.addEventListener('start', e => console.log('start', JSON.parse(e.data)));
+  es.addEventListener('track', e => console.log('track', JSON.parse(e.data)));
+  es.addEventListener('progress', e => console.log('progress', JSON.parse(e.data)));
+  es.addEventListener('done', e => { console.log('done', JSON.parse(e.data)); es.close(); });
+  es.addEventListener('error', e => { console.error('导入失败', e); es.close(); });
+}
+
+importPlaylist(neteaseUrl);
+```
+
+**说明**：上述导入接口必须携带用户令牌，且必须指定 `targetPlaylistId` 或 `targetPlaylistName`；站外匹配与下载全部在服务端完成。
 
 ---
 
