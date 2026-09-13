@@ -2,7 +2,7 @@
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko歌姬计划 署名及源码链接！
 
-#### 更新时间 2026年9月5日
+#### 更新时间 2026年9月13日
 ## 概述
 
 Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -780,6 +780,136 @@ async function getUserUploadedMusic() {
     console.error('获取用户上传音乐失败:', data.message);
   }
   return data;
+}
+```
+
+---
+
+### 19. 扫码登录
+
+PC 端展示二维码，手机端（NekoMusic App）扫码确认后，PC 端自动登录。二维码 180 秒内有效，且只能被取走一次。
+
+**流程:**
+
+1. PC 端 `POST /api/user/qrlogin/create` 拿到 `sessionId` 与二维码内容并展示；
+2. PC 端对 `GET /api/user/qrlogin/status` 建立 **SSE 长连接**，等待服务端推状态；
+3. 手机端扫码后带**自己的用户 Token** 调 `POST /api/user/qrlogin/scan`，PC 端收到 `scanned`；
+4. 用户在手机上确认（或拒绝）后调 `POST /api/user/qrlogin/confirm`；
+5. PC 端收到 `confirmed` 帧里的 `token` 与用户信息，完成登录，连接自动关闭。
+
+**二维码内容格式:**
+
+```
+nekomusic://qrlogin?sid=<sessionId>
+```
+
+客户端解析出 `sid` 即可，无需识别其余部分。
+
+#### 19.1 创建扫码会话（无需登录）
+
+**端点:** `POST /api/user/qrlogin/create`
+
+**响应示例:**
+```json
+{
+  "success": true,
+  "message": "ok",
+  "data": {
+    "sessionId": "32位URL安全随机串",
+    "qrContent": "nekomusic://qrlogin?sid=32位URL安全随机串",
+    "expiresIn": 180
+  }
+}
+```
+
+#### 19.2 订阅扫码状态（SSE，无需登录）
+
+**端点:** `GET /api/user/qrlogin/status?sessionId=<sessionId>`
+
+**响应类型:** `text/event-stream`
+
+连接建立后立即推送一次当前状态，之后状态有变化就即时推送 `status` 事件；服务端每 15 秒发一次 `: ping` 心跳保活。终态（`confirmed` / `canceled` / `expired`）推送完成后连接自动关闭，无需客户端主动断开。
+
+**事件示例:**
+```
+: connected
+
+event: status
+data: {"status":"pending"}
+
+event: status
+data: {"status":"scanned"}
+
+event: status
+data: {"status":"confirmed","token":"登录令牌","user":{"id":1,...}}
+```
+
+**`data.status` 取值:** `pending`（等待扫码）、`scanned`（已扫码待确认）、`confirmed`（已确认）、`canceled`（已取消）、`expired`（会话不存在/已过期）。
+
+**`confirmed` 帧示例:**
+```json
+{
+  "status": "confirmed",
+  "token": "登录令牌",
+  "user": {
+    "id": 1,
+    "username": "用户名",
+    "email": "email@example.com",
+    "createdAt": "2024-01-01T00:00:00",
+    "isVip": false,
+    "vipExpiresAt": null
+  }
+}
+```
+
+**说明:** 只有 `confirmed` 帧包含 `token`；该帧推送后会话立即销毁，重复订阅只会得到 `expired`。`sessionId` 无效时在建流之前返回 JSON `400`。
+
+#### 19.3 标记已扫码（需登录）
+
+**端点:** `POST /api/user/qrlogin/scan`
+
+**认证:** 需要登录，`Authorization: <token>`
+
+**请求体:**
+```json
+{
+  "sessionId": "string"
+}
+```
+
+**响应示例:**
+```json
+{
+  "success": true,
+  "message": "ok",
+  "data": { "status": "scanned" }
+}
+```
+
+**错误:** 会话不存在或已过期返回 `410`；二维码已被其他账号扫描返回 `409`。
+
+#### 19.4 确认或拒绝登录（需登录）
+
+**端点:** `POST /api/user/qrlogin/confirm`
+
+**认证:** 需要登录，`Authorization: <token>`
+
+**请求体:**
+```json
+{
+  "sessionId": "string",
+  "approve": true
+}
+```
+
+**说明:** `approve` 省略时默认为 `true`；传 `false` 表示拒绝，PC 端会收到 `canceled`。
+
+**响应示例:**
+```json
+{
+  "success": true,
+  "message": "ok",
+  "data": { "status": "confirmed" }
 }
 ```
 
