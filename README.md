@@ -2131,8 +2131,8 @@ async function downloadVideoClip(jobId, filename = 'clip.mp4') {
 
 用**外部歌单 ID** 发起导入，由后端完成站外匹配，并把结果加入你指定的站内歌单，进度通过 **SSE** 实时返回。
 
-- 支持音源：网易云音乐、QQ 音乐。
-- 无论哪个平台（qq / 网易云），导入请求都**必须携带用户令牌**。
+- 支持音源：网易云音乐、QQ 音乐、酷狗音乐。
+- 无论哪个平台（`qq` / `netease` / `kugou`），导入请求都**必须携带用户令牌**。
 - 必须指定导入目标：已有站内歌单 `targetPlaylistId`，或新建歌单 `targetPlaylistName`（二选一）。
 
 ### 认证方式
@@ -2168,8 +2168,68 @@ Authorization: Bearer <token>
 | `targetPlaylistName` | 二选一 | 新建站内歌单并导入，名称不超过 255 字且不含违禁词 |
 | `token` | EventSource 场景 | 用户令牌（也可用 `Authorization` 请求头） |
 
+### 3. 酷狗歌单导入
 
-### 3. SSE 事件
+`GET|POST /loser/kugou/pull`
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `listid` | 是 | 酷狗歌单链接或 ID，最长 255 字符 |
+| `targetPlaylistId` | 二选一 | 导入到已有站内歌单，必须是本人的歌单，否则 `403` |
+| `targetPlaylistName` | 二选一 | 新建站内歌单并导入，名称不超过 255 字且不含违禁词 |
+| `token` | EventSource 场景 | 用户令牌（也可用 `Authorization` 请求头） |
+
+**`listid` 支持的输入形式：**
+
+| 形式 | 示例 |
+|------|------|
+| 特殊歌单 ID（数字） | `1234567` |
+| 网页版歌单链接 | `https://www.kugou.com/yy/special/single/1234567.html` |
+| 移动端分享链接（gcid） | `https://m.kugou.com/songlist/gcid_3zmi8f5nz5z0c4/` |
+| 网关全局歌单 ID | `collection_3_12345678_1_0` |
+| 移动端单曲分享链接 | `https://m.kugou.com/share/?action=single&hash=...` |
+
+**说明：**
+
+- 酷狗仅提供歌名 / 歌手等元数据，**不含可下载直链**。后端优先在站内库匹配，未命中时经网易云补全后再入库，因此部分曲目可能匹配失败（`status: failed`）。
+- 移动端 gcid 分享链接为不可逆短码，后端会解析分享页并扫描对应用户的公开歌单反查全量曲目；反查受限时会退化为分享页内嵌的曲目。
+- 播放 / 下载入库后的曲目，使用返回的 `musicId` 走 `GET /api/music/file/{musicId}`，与其它音源一致。
+
+### 4. 酷狗歌单详情（代理）
+
+`GET /loser/kugou/getSongListDetail`
+
+无需登录，用于解析酷狗歌单的元数据（不含直链）。
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `listid` | 是 | 酷狗歌单链接或 ID，格式同「酷狗歌单导入」 |
+
+**响应示例:**
+```json
+{
+  "response": {
+    "code": 0,
+    "listid": "1234567",
+    "name": "歌单名称",
+    "songnum": 2,
+    "songlist": [
+      {
+        "hash": "ABCDEF0123456789ABCDEF0123456789",
+        "name": "歌名",
+        "singer": [
+          { "name": "歌手" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**响应：** 歌单数据统一放在 `response` 字段中，结构为 `{code, listid, name, songnum, songlist[]}`；`listid` 缺失或非法返回 `400`，酷狗上游异常返回 `502`。
+
+
+### 5. SSE 事件
 
 响应 `Content-Type: text/event-stream`，连接后先发送注释帧 `: connected`，随后推送：
 
@@ -2181,7 +2241,7 @@ Authorization: Bearer <token>
 | `done` | `{total,imported,existed,failed}` |
 | `error` | `{message}` |
 
-- `source`：`netease` 或 `qq`；`sourceId`：网易云歌曲 ID 或 QQ 歌曲 `mid`。
+- `source`：`netease`、`qq` 或 `kugou`；`sourceId`：网易云歌曲 ID、QQ 歌曲 `mid` 或酷狗歌曲 `hash`。
 - `targetPlaylistCreated`：目标歌单是否为本次新建。
 - `status`：`downloading`（下载中）、`matching`（站外匹配中）、`imported`（本次新入库）、`existed`（已有曲目）、`failed`（失败，见 `message`）。
 - `progress` 为下载阶段进度，`percent` 为 `-1` 表示上游未返回 `Content-Length`。
@@ -2216,6 +2276,8 @@ const base = 'https://music.cnmsb.xin/loser';
 const neteaseUrl = `${base}/netease/pull?playlistId=7011264340&targetPlaylistId=12&token=${encodeURIComponent(token)}`;
 // 方式二：新建歌单导入（targetPlaylistName）
 const qqUrl = `${base}/qq/pull?disstid=7011264340&targetPlaylistName=${encodeURIComponent('我的导入歌单')}&token=${encodeURIComponent(token)}`;
+// 方式三：酷狗歌单导入（listid 支持数字 ID / 链接 / gcid 分享链接）
+const kugouUrl = `${base}/kugou/pull?listid=${encodeURIComponent('1234567')}&targetPlaylistId=12&token=${encodeURIComponent(token)}`;
 
 function importPlaylist(url) {
   const es = new EventSource(url);
@@ -2227,9 +2289,10 @@ function importPlaylist(url) {
 }
 
 importPlaylist(neteaseUrl);
+// importPlaylist(kugouUrl);
 ```
 
-**说明**：上述导入接口必须携带用户令牌，且必须指定 `targetPlaylistId` 或 `targetPlaylistName`；站外匹配与下载全部在服务端完成。
+**说明**：上述导入接口（`/loser/{netease|qq|kugou}/pull`）必须携带用户令牌，且必须指定 `targetPlaylistId` 或 `targetPlaylistName`；站外匹配与下载全部在服务端完成。`source` 为 `kugou` 时曲目只有元数据，后端会先做站内匹配、再从网易云补全。
 
 ---
 
@@ -2862,6 +2925,12 @@ async function getFavoritePlaylistMusic(playlistId) {
    - 新增 API：`POST /api/user/favorite-playlists` - 收藏歌单（需要登录）
    - 新增 API：`DELETE /api/user/favorite-playlists/{id}` - 取消收藏歌单（需要登录）
    - 新增 API：`GET /api/user/favorite-playlists/{id}` - 获取收藏歌单内音乐（需要登录）
+
+12. **外部歌单导入:**
+   - 支持网易云、QQ、酷狗三家音源的歌单导入，统一走 `/loser/{netease|qq|kugou}/pull`，进度通过 SSE 返回。
+   - 全部需要登录（`Authorization` / `?token=`），且必须指定 `targetPlaylistId` 或 `targetPlaylistName`。
+   - 酷狗仅提供元数据（歌名 / 歌手 / hash），入库前会先站内匹配、再从网易云补全，未命中曲目以 `status: failed` 回报。
+   - 另提供 `GET /loser/kugou/getSongListDetail?listid=` 代理酷狗歌单详情（无需登录，仅元数据）。
 
 ---
 
