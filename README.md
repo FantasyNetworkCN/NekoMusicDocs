@@ -55,7 +55,7 @@ Content-Type: application/json
 **请求体:**
 ```json
 {
-  "username": "string",      // 用户名 (必填)
+  "username": "string",      // 昵称 (必填)
   "password": "string",      // 密码 (必填)
   "email": "string",         // 邮箱 (必填)
   "verificationCode": "string"  // 邮箱验证码 (必填)
@@ -70,7 +70,7 @@ Content-Type: application/json
   "data": {
     "user": {
       "id": 1,
-      "username": "用户名",
+      "username": "昵称",
       "email": "email@example.com",
       "createdAt": "2024-01-01T00:00:00"
     },
@@ -104,7 +104,7 @@ Content-Type: application/json
   "data": {
     "user": {
       "id": 1,
-      "username": "用户名",
+      "username": "昵称",
       "email": "email@example.com",
       "createdAt": "2024-01-01T00:00:00",
       "isVip": false,
@@ -355,7 +355,7 @@ Authorization: <token>
       "favoriteTime": 1706501400000,
       "creator": {
         "id": 1,
-        "username": "用户名"
+        "username": "昵称"
       }
     }
   ]
@@ -853,7 +853,7 @@ data: {"status":"confirmed","token":"登录令牌","user":{"id":1,...}}
   "token": "登录令牌",
   "user": {
     "id": 1,
-    "username": "用户名",
+    "username": "昵称",
     "email": "email@example.com",
     "createdAt": "2024-01-01T00:00:00",
     "isVip": false,
