@@ -2,7 +2,7 @@
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko歌姬计划 署名及源码链接！
 
-#### 更新时间 2026年9月13日
+#### 更新时间 2026年9月19日
 ## 概述
 
 Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -704,7 +704,95 @@ Content-Type: application/json
 }
 ```
 
-### 18. 获取用户上传审核通过的音乐
+### 18. 修改用户昵称
+
+**端点:** `POST /api/user/nickname/change`
+
+**请求头:**
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**请求体:**
+```json
+{
+  "nickname": "string"  // 新昵称（必填，长度 1-20，不能包含违禁词）
+}
+```
+
+**响应示例（成功）:**
+```json
+{
+  "success": true,
+  "message": "昵称修改成功喵！",
+  "data": {
+    "nickname": "新昵称"
+  }
+}
+```
+
+**响应示例（失败）:**
+```json
+{
+  "success": false,
+  "message": "昵称长度需在1-20之间喵"
+}
+```
+
+或
+
+```json
+{
+  "success": false,
+  "message": "昵称包含违禁词喵"
+}
+```
+
+或
+
+```json
+{
+  "success": false,
+  "message": "未授权访问，请先登录"
+}
+```
+
+**说明:**
+- 此 API 需要登录才能访问
+- 昵称即账号用户名，规则与注册时一致：长度 1-20 个字符，且不能包含违禁词
+- 昵称允许重复（不要求唯一）；修改后不影响当前登录状态，无需重新登录
+- 修改成功后建议同步更新本地缓存的用户信息（如 `localStorage.user`）以刷新页面展示
+
+**前端集成示例:**
+```javascript
+async function changeNickname(nickname) {
+  const token = localStorage.getItem('userToken');
+
+  const response = await fetch('https://music.cnmsb.xin/api/user/nickname/change', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ nickname })
+  });
+
+  const data = await response.json();
+  if (data.success) {
+    // 同步本地缓存的用户昵称
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    user.username = data.data.nickname;
+    localStorage.setItem('user', JSON.stringify(user));
+    alert('昵称修改成功！');
+  } else {
+    alert('昵称修改失败：' + data.message);
+  }
+  return data;
+}
+```
+
+### 19. 获取用户上传审核通过的音乐
 
 **端点:** `GET /api/user/uploaded-music`
 
@@ -785,7 +873,7 @@ async function getUserUploadedMusic() {
 
 ---
 
-### 19. 扫码登录
+### 20. 扫码登录
 
 PC 端展示二维码，手机端（NekoMusic App）扫码确认后，PC 端自动登录。二维码 180 秒内有效，且只能被取走一次。
 
@@ -805,7 +893,7 @@ nekomusic://qrlogin?sid=<sessionId>
 
 客户端解析出 `sid` 即可，无需识别其余部分。
 
-#### 19.1 创建扫码会话（无需登录）
+#### 20.1 创建扫码会话（无需登录）
 
 **端点:** `POST /api/user/qrlogin/create`
 
@@ -822,7 +910,7 @@ nekomusic://qrlogin?sid=<sessionId>
 }
 ```
 
-#### 19.2 订阅扫码状态（SSE，无需登录）
+#### 20.2 订阅扫码状态（SSE，无需登录）
 
 **端点:** `GET /api/user/qrlogin/status?sessionId=<sessionId>`
 
@@ -864,7 +952,7 @@ data: {"status":"confirmed","token":"登录令牌","user":{"id":1,...}}
 
 **说明:** 只有 `confirmed` 帧包含 `token`；该帧推送后会话立即销毁，重复订阅只会得到 `expired`。`sessionId` 无效时在建流之前返回 JSON `400`。
 
-#### 19.3 标记已扫码（需登录）
+#### 20.3 标记已扫码（需登录）
 
 **端点:** `POST /api/user/qrlogin/scan`
 
@@ -888,7 +976,7 @@ data: {"status":"confirmed","token":"登录令牌","user":{"id":1,...}}
 
 **错误:** 会话不存在或已过期返回 `410`；二维码已被其他账号扫描返回 `409`。
 
-#### 19.4 确认或拒绝登录（需登录）
+#### 20.4 确认或拒绝登录（需登录）
 
 **端点:** `POST /api/user/qrlogin/confirm`
 
@@ -2740,6 +2828,35 @@ async function changePassword(oldPassword, newPassword) {
     alert('密码修改成功！');
   } else {
     alert('密码修改失败：' + data.error);
+  }
+  return data;
+}
+```
+
+### 修改用户昵称
+
+```javascript
+async function changeNickname(nickname) {
+  const token = localStorage.getItem('userToken');
+
+  const response = await fetch('https://music.cnmsb.xin/api/user/nickname/change', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ nickname: nickname })
+  });
+
+  const data = await response.json();
+  if (data.success) {
+    // 同步本地缓存的用户昵称，刷新页面展示
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    user.username = data.data.nickname;
+    localStorage.setItem('user', JSON.stringify(user));
+    alert('昵称修改成功！');
+  } else {
+    alert('昵称修改失败：' + data.message);
   }
   return data;
 }
