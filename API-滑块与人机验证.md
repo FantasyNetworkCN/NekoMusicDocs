@@ -11,7 +11,7 @@
 1. 用户填写邮箱（及可选用户名）后，在界面中打开人机验证（例如弹窗）。
 2. 调用 **`GET /api/captcha/slider`** 拉取当次挑战（背景图、滑块图、`captchaToken` 等）。
 3. 用户拖动滑块对齐缺口后，在**松手**时调用 **`POST /api/captcha/slider/verify`**，提交本次的 `captchaToken` 与拼图水平位移 `captchaOffsetX`（像素，与背景图坐标系一致）。
-4. 若校验成功，响应体中的 **`captchaPassToken`** 为短时一次性令牌；紧接着调用 **`POST /api/user/send-verification`**，在 JSON 中带上 **`captchaPassToken`**（及 `email`、`username`），服务端校验通过后才发邮件。
+4. 若校验成功，响应体中的 **`captchaPassToken`** 为短时一次性令牌；紧接着调用 **`POST /api/user/send-verification`**，在 JSON 中带上 **`captchaPassToken`**（及 `email`、`nickname`），服务端校验通过后才发邮件。
 5. 用户收到邮件验证码后，再调用 **`POST /api/user/register`** 完成注册（**注册接口不要求**滑块参数，仅校验邮箱验证码等业务规则）。
 
 **注意：**
@@ -142,7 +142,7 @@ Content-Type: application/json
 ```json
 {
   "email": "user@example.com",
-  "username": "用户",
+  "nickname": "用户",
   "captchaPassToken": "string"
 }
 ```
@@ -150,7 +150,7 @@ Content-Type: application/json
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `email` | string | 是 | 接收验证码的邮箱 |
-| `username` | string | 否 | 邮件模板等用途，缺省服务端可按 `"用户"` 处理 |
+| `nickname` | string | 否 | 邮件模板等用途，缺省服务端可按 `"用户"` 处理 |
 | `captchaPassToken` | string | 是 | 来自 `POST /api/captcha/slider/verify` 成功响应的 `data.captchaPassToken` |
 
 **成功响应：**
