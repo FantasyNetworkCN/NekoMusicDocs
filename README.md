@@ -2,7 +2,7 @@
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko歌姬计划 署名及源码链接！
 
-#### 更新时间 2026年9月19日
+#### 更新时间 2026年9月21日
 ## 概述
 
 Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -55,7 +55,7 @@ Content-Type: application/json
 **请求体:**
 ```json
 {
-  "username": "string",      // 昵称 (必填)
+  "nickname": "string",      // 昵称 (必填)
   "password": "string",      // 密码 (必填)
   "email": "string",         // 邮箱 (必填)
   "verificationCode": "string"  // 邮箱验证码 (必填)
@@ -70,7 +70,7 @@ Content-Type: application/json
   "data": {
     "user": {
       "id": 1,
-      "username": "昵称",
+      "nickname": "昵称",
       "email": "email@example.com",
       "createdAt": "2024-01-01T00:00:00"
     },
@@ -91,7 +91,7 @@ Content-Type: application/json
 **请求体:**
 ```json
 {
-  "username": "string",  // 邮箱
+  "nickname": "string",  // 邮箱
   "password": "string"   // 密码
 }
 ```
@@ -104,7 +104,7 @@ Content-Type: application/json
   "data": {
     "user": {
       "id": 1,
-      "username": "昵称",
+      "nickname": "昵称",
       "email": "email@example.com",
       "createdAt": "2024-01-01T00:00:00",
       "isVip": false,
@@ -132,7 +132,7 @@ Content-Type: application/json
 ```json
 {
   "email": "string",
-  "username": "string",
+  "nickname": "string",
   "captchaPassToken": "string"
 }
 ```
@@ -140,7 +140,7 @@ Content-Type: application/json
 | 字段 | 必填 | 说明 |
 |------|------|------|
 | `email` | 是 | 接收验证码的邮箱 |
-| `username` | 否 | 展示名等，缺省可由服务端按「用户」处理 |
+| `nickname` | 否 | 展示名等，缺省可由服务端按「用户」处理 |
 | `captchaPassToken` | 是 | 调用 `POST /api/captcha/slider/verify` 成功后返回的一次性通行令牌 |
 
 **响应示例:**
@@ -355,7 +355,7 @@ Authorization: <token>
       "favoriteTime": 1706501400000,
       "creator": {
         "id": 1,
-        "username": "昵称"
+        "nickname": "昵称"
       }
     }
   ]
@@ -782,7 +782,7 @@ async function changeNickname(nickname) {
   if (data.success) {
     // 同步本地缓存的用户昵称
     const user = JSON.parse(localStorage.getItem('user') || '{}');
-    user.username = data.data.nickname;
+    user.nickname = data.data.nickname;
     localStorage.setItem('user', JSON.stringify(user));
     alert('昵称修改成功！');
   } else {
@@ -941,7 +941,7 @@ data: {"status":"confirmed","token":"登录令牌","user":{"id":1,...}}
   "token": "登录令牌",
   "user": {
     "id": 1,
-    "username": "昵称",
+    "nickname": "昵称",
     "email": "email@example.com",
     "createdAt": "2024-01-01T00:00:00",
     "isVip": false,
@@ -2415,13 +2415,13 @@ importPlaylist(neteaseUrl);
 ### 用户登录
 
 ```javascript
-async function login(username, password) {
+async function login(nickname, password) {
   const response = await fetch('https://music.cnmsb.xin/api/user/login', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ username, password })
+    body: JSON.stringify({ nickname, password })
   });
   
   const data = await response.json();
@@ -2852,7 +2852,7 @@ async function changeNickname(nickname) {
   if (data.success) {
     // 同步本地缓存的用户昵称，刷新页面展示
     const user = JSON.parse(localStorage.getItem('user') || '{}');
-    user.username = data.data.nickname;
+    user.nickname = data.data.nickname;
     localStorage.setItem('user', JSON.stringify(user));
     alert('昵称修改成功！');
   } else {
@@ -2882,7 +2882,7 @@ async function getFavoritePlaylists() {
     // 每个歌单包含：
     // - id, name, description, musicCount
     // - createdAt, updatedAt, favoriteTime (Unix时间戳)
-    // - creator: 创建者信息 {id, username}
+    // - creator: 创建者信息 {id, nickname}
   } else {
     console.error('获取收藏歌单列表失败');
   }
