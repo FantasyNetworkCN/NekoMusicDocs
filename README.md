@@ -91,7 +91,7 @@ Content-Type: application/json
 **请求体:**
 ```json
 {
-  "nickname": "string",  // 邮箱
+  "email": "string",     // 邮箱
   "password": "string"   // 密码
 }
 ```
@@ -2415,13 +2415,13 @@ importPlaylist(neteaseUrl);
 ### 用户登录
 
 ```javascript
-async function login(nickname, password) {
+async function login(email, password) {
   const response = await fetch('https://music.cnmsb.xin/api/user/login', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ nickname, password })
+    body: JSON.stringify({ email, password })
   });
   
   const data = await response.json();
