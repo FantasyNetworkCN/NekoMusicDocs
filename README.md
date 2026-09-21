@@ -874,7 +874,50 @@ async function getUserUploadedMusic() {
 
 ---
 
-### 20. 扫码登录
+### 20. 获取当前用户信息
+
+**端点:** `GET /api/user/info`
+
+**请求头:**
+```
+Authorization: Bearer <token>
+```
+
+客户端只需要在本地持久化 Token，昵称等资料启动时用本接口拉取，避免本地缓存过期。
+
+**响应示例（成功）:**
+```json
+{
+  "success": true,
+  "message": "获取用户信息成功",
+  "data": {
+    "user": {
+      "id": 3,
+      "nickname": "喵",
+      "email": "neko@example.com",
+      "createdAt": "2026-01-29 12:00:00",
+      "isVip": false,
+      "vipExpiresAt": null
+    }
+  }
+}
+```
+
+`user` 字段与登录接口 `data.user` 完全一致，客户端可以直接复用解析逻辑。
+
+**响应示例（未登录 / Token 失效）:**
+```json
+{
+  "success": false,
+  "message": "请先登录"
+}
+```
+
+**状态码:** `401` 未登录或 Token 失效；`404` 用户不存在。
+
+---
+
+### 21. 扫码登录
 
 PC 端展示二维码，手机端（NekoMusic App）扫码确认后，PC 端自动登录。二维码 180 秒内有效，且只能被取走一次。
 
@@ -894,7 +937,7 @@ nekomusic://qrlogin?sid=<sessionId>
 
 客户端解析出 `sid` 即可，无需识别其余部分。
 
-#### 20.1 创建扫码会话（无需登录）
+#### 21.1 创建扫码会话（无需登录）
 
 **端点:** `POST /api/user/qrlogin/create`
 
@@ -911,7 +954,7 @@ nekomusic://qrlogin?sid=<sessionId>
 }
 ```
 
-#### 20.2 订阅扫码状态（SSE，无需登录）
+#### 21.2 订阅扫码状态（SSE，无需登录）
 
 **端点:** `GET /api/user/qrlogin/status?sessionId=<sessionId>`
 
@@ -953,7 +996,7 @@ data: {"status":"confirmed","token":"登录令牌","user":{"id":1,...}}
 
 **说明:** 只有 `confirmed` 帧包含 `token`；该帧推送后会话立即销毁，重复订阅只会得到 `expired`。`sessionId` 无效时在建流之前返回 JSON `400`。
 
-#### 20.3 标记已扫码（需登录）
+#### 21.3 标记已扫码（需登录）
 
 **端点:** `POST /api/user/qrlogin/scan`
 
@@ -977,7 +1020,7 @@ data: {"status":"confirmed","token":"登录令牌","user":{"id":1,...}}
 
 **错误:** 会话不存在或已过期返回 `410`；二维码已被其他账号扫描返回 `409`。
 
-#### 20.4 确认或拒绝登录（需登录）
+#### 21.4 确认或拒绝登录（需登录）
 
 **端点:** `POST /api/user/qrlogin/confirm`
 
