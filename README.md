@@ -19,6 +19,7 @@ Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用�
 - [VIP 与价目 API](#vip-与价目-api)
 - [音乐相关 API](#音乐相关-api)
 - [听歌识曲 API](#听歌识曲-api)
+- [歌曲评论 API](#歌曲评论-api)
 - [分享视频渲染 API](#分享视频渲染-api)
 - [外部音乐导入 API](#外部音乐导入-api)
 - [错误码说明](#错误码说明)
@@ -2031,6 +2032,130 @@ async function getLatestMusic(limit = 300) {
   return data;
 }
 ```
+
+---
+
+## 歌曲评论 API
+
+每首歌的评论、回复、删除**共用一个端点** `/api/comments`，通过 HTTP 方法区分动作。评论结构为「楼层 + 楼层内回复」两层；每条评论都会返回发表时间、IP 归属地与作者信息（头像地址为 `/api/user/avatar/{userId}`）。
+
+### 1. 获取评论列表
+
+**端点:** `GET /api/comments?musicId={id}&page=1&pageSize=20`
+
+**认证:** 无需登录（登录后返回的 `canDelete` 会标记自己的评论）
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `musicId` | 是 | 音乐 ID |
+| `page` | 否 | 楼层页码，从 1 开始，默认 1 |
+| `pageSize` | 否 | 每页楼层数，1~50，默认 20（回复随楼层一并返回） |
+
+**响应示例:**
+
+```json
+{
+  "success": true,
+  "message": "获取评论成功",
+  "data": {
+    "musicId": 13751,
+    "page": 1,
+    "pageSize": 20,
+    "total": 1,
+    "totalComments": 3,
+    "totalPages": 1,
+    "hasMore": false,
+    "comments": [
+      {
+        "id": 12,
+        "musicId": 13751,
+        "content": "这首太好听了",
+        "deleted": false,
+        "createdAt": "2026-09-21 22:10:03",
+        "ipRegion": "广东",
+        "canDelete": false,
+        "user": { "id": 3, "nickname": "喵" },
+        "replyCount": 2,
+        "replies": [
+          {
+            "id": 13,
+            "content": "同感",
+            "deleted": false,
+            "createdAt": "2026-09-21 22:12:40",
+            "ipRegion": "北京",
+            "canDelete": false,
+            "user": { "id": 9, "nickname": "Neko" },
+            "replyToUser": { "id": 3, "nickname": "喵" }
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+`total` 为楼层数，`totalComments` 为楼层与回复的总数。被删除的评论 `deleted` 为 `true`、`content` 为空字符串（楼层结构保留）。
+
+### 2. 发表评论 / 回复
+
+**端点:** `POST /api/comments`
+
+**认证:** 需要用户 Token（`Authorization: <token>`）
+
+**请求体:**
+
+```json
+{ "musicId": 13751, "content": "这首太好听了" }
+```
+
+回复时额外带上被回复评论的 `id`（楼层或楼层内回复的 id 都可以，都会归入同一楼层并标记 @ 对象）：
+
+```json
+{ "musicId": 13751, "content": "同感", "parentId": 12 }
+```
+
+**限制:**
+
+| 项 | 说明 |
+|----|------|
+| 内容长度 | 1~500 字 |
+| 违禁词 | 命中违禁词直接拒绝 |
+| 发帖间隔 | 同一用户两次发表至少间隔 5 秒，否则返回 429 |
+
+**成功响应:**
+
+```json
+{
+  "success": true,
+  "message": "评论成功",
+  "data": {
+    "id": 14,
+    "musicId": 13751,
+    "parentId": null,
+    "content": "这首太好听了",
+    "ipRegion": "广东",
+    "createdAt": "2026-09-21 22:20:11",
+    "isReply": false
+  }
+}
+```
+
+### 3. 删除评论
+
+**端点:** `DELETE /api/comments?id={commentId}`
+
+**认证:** 需要用户 Token，只能删除自己的评论；携带管理员 Token 时可删除任意一条。删除为软删除，楼层结构保留。
+
+```bash
+curl -X DELETE 'https://music.cnmsb.xin/api/comments?id=14' \
+  -H 'Authorization: <token>'
+```
+
+### 说明
+
+- **时间**：`createdAt` 为东八区墙钟时间（`yyyy-MM-dd HH:mm:ss`）。
+- **IP 归属地**：`ipRegion` 是发表时用本地 MaxMind GeoIP2 / GeoLite2 数据库解析的快照，IPv4 / IPv6 均支持；未部署数据库或属于内网时为「未知」/「本地」，不请求任何第三方接口。
+- **头像**：接口只返回 `user.id`，客户端按 `/api/user/avatar/{userId}` 取图。
 
 ---
 
