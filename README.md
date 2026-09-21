@@ -2070,7 +2070,6 @@ async function getLatestMusic(limit = 300) {
         "id": 12,
         "musicId": 13751,
         "content": "这首太好听了",
-        "deleted": false,
         "createdAt": "2026-09-21 22:10:03",
         "ipRegion": "广东",
         "canDelete": false,
@@ -2080,7 +2079,6 @@ async function getLatestMusic(limit = 300) {
           {
             "id": 13,
             "content": "同感",
-            "deleted": false,
             "createdAt": "2026-09-21 22:12:40",
             "ipRegion": "北京",
             "canDelete": false,
@@ -2094,7 +2092,7 @@ async function getLatestMusic(limit = 300) {
 }
 ```
 
-`total` 为楼层数，`totalComments` 为楼层与回复的总数。被删除的评论 `deleted` 为 `true`、`content` 为空字符串（楼层结构保留）。
+`total` 为楼层数，`totalComments` 为楼层与回复的总数。评论删除是物理删除，删掉后不再返回（也没有「已删除」占位）。
 
 ### 2. 发表评论 / 回复
 
@@ -2144,17 +2142,31 @@ async function getLatestMusic(limit = 300) {
 
 **端点:** `DELETE /api/comments?id={commentId}`
 
-**认证:** 需要用户 Token，只能删除自己的评论；携带管理员 Token 时可删除任意一条。删除为软删除，楼层结构保留。
+**认证:** 需要用户 Token，只能删除自己的评论；携带管理员 Token 时可删除任意一条。
+
+删除是**物理删除**：记录直接从数据库移除，删楼层时会**连带删除该楼层下的全部回复**，不会留下占位楼层。
 
 ```bash
 curl -X DELETE 'https://music.cnmsb.xin/api/comments?id=14' \
   -H 'Authorization: <token>'
 ```
 
+**成功响应:**
+
+```json
+{
+  "success": true,
+  "message": "删除成功",
+  "data": { "id": 14, "repliesDeleted": 2 }
+}
+```
+
+`repliesDeleted` 为随楼层一并删除的回复条数（删除的是回复本身时为 `0`）。
+
 ### 说明
 
-- **时间**：`createdAt` 为东八区墙钟时间（`yyyy-MM-dd HH:mm:ss`）。
-- **IP 归属地**：`ipRegion` 是发表时用本地 MaxMind GeoIP2 / GeoLite2 数据库解析的快照，IPv4 / IPv6 均支持；未部署数据库或属于内网时为「未知」/「本地」，不请求任何第三方接口。
+- **时间**：`createdAt` 为东八区(UTC8)墙钟时间（`yyyy-MM-dd HH:mm:ss`）。
+- **IP 归属地**：`ipRegion` 是发表时用本地 MaxMind GeoIP2 / GeoLite2 数据库解析的快照，IPv4 / IPv6 均支持；未部署数据库或属于内网时为「未知」/「本地」，不请求任何第三方接口。展示上国内只取市级（无市级时退到省 / 自治区名，如 `上海`、`贵州`），港澳台统一带「中国」前缀（`中国香港` / `中国澳门` / `中国台湾`），国外取国家名。
 - **头像**：接口只返回 `user.id`，客户端按 `/api/user/avatar/{userId}` 取图。
 
 ---
