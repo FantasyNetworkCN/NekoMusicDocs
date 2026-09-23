@@ -2497,7 +2497,74 @@ Authorization: Bearer <token>
 **响应：** 歌单数据统一放在 `response` 字段中，结构为 `{code, listid, name, songnum, songlist[]}`；`listid` 缺失或非法返回 `400`，酷狗上游异常返回 `502`。
 
 
-### 5. SSE 事件
+### 5. 汽水音乐歌单导入
+
+`GET|POST /loser/qishui/pull`
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `playlist_id` | 是 | 汽水歌单 ID 或分享链接，最长 2048 字符（也可用 `url` / `id`） |
+| `targetPlaylistId` | 二选一 | 导入到已有站内歌单，必须是本人的歌单，否则 `403` |
+| `targetPlaylistName` | 二选一 | 新建站内歌单并导入，名称不超过 255 字且不含违禁词 |
+| `token` | EventSource 场景 | 用户令牌（也可用 `Authorization` 请求头） |
+
+**`playlist_id` 支持的输入形式：**
+
+| 形式 | 示例 |
+|------|------|
+| 纯数字歌单 ID | `7434476168507637799` |
+| 网页版歌单链接 | `https://www.qishui.com/playlist/7434476168507637799` |
+| 分享页链接 | `https://music.douyin.com/qishui/share/playlist?playlist_id=7434476168507637799` |
+| 汽水 / 抖音短链 | `https://qishui.douyin.com/s/iQJQNPDh/` |
+
+**说明：**
+
+- 汽水歌单仅提供歌名 / 歌手 / 专辑等元数据，**不含可下载直链**。后端优先在站内库匹配，未命中时经网易云补全后再入库，因此部分曲目可能匹配失败（`status: failed`）。
+- 公开歌单无需登录；后端已扫码登录时会自动携带 `sessionid`，可读取本人私密歌单。
+- 拉取优先走 PC `playlist/detail` 接口并按 `next_cursor` 翻页，失败或为空时回退解析分享页内嵌数据；分页中途失败会报错，不会交付半份歌单。
+
+### 6. 汽水音乐歌单详情（代理）
+
+`GET|POST /loser/qishui/getSongListDetail`
+
+无需登录，用于解析汽水歌单的元数据（不含直链）。
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `playlist_id` | 是 | 汽水歌单 ID 或分享链接，格式同「汽水音乐歌单导入」（也可用 `url` / `id`） |
+
+**响应示例:**
+```json
+{
+  "success": true,
+  "message": "ok",
+  "data": {
+    "code": 0,
+    "playlist_id": "7434476168507637799",
+    "name": "旅行者必听｜原神全部专辑上线✨",
+    "owner": "汽水音乐APP",
+    "cover": "https://p3-luna.douyinpic.com/img/...~tplv-b829550vbb-resize:960:960.png",
+    "songnum": 2,
+    "songlist": [
+      {
+        "id": "7420006432714688528",
+        "name": "经过",
+        "album": "原神-「经过 Passing memories」四周年主题曲EP专辑",
+        "duration": 215493,
+        "cover": "https://p3-luna.douyinpic.com/img/...~tplv-b829550vbb-resize:960:960.png",
+        "singer": [
+          { "name": "张杰" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**响应：** 歌单数据放在 `data` 字段中，结构为 `{code, playlist_id, name, owner, cover, songnum, songlist[]}`；`duration` 为毫秒。`playlist_id` 缺失或非法返回 `400`，汽水上游异常或歌单不可访问返回 `502`。
+
+
+### 7. SSE 事件
 
 响应 `Content-Type: text/event-stream`，连接后先发送注释帧 `: connected`，随后推送：
 
@@ -2509,7 +2576,7 @@ Authorization: Bearer <token>
 | `done` | `{total,imported,existed,failed}` |
 | `error` | `{message}` |
 
-- `source`：`netease`、`qq` 或 `kugou`；`sourceId`：网易云歌曲 ID、QQ 歌曲 `mid` 或酷狗歌曲 `hash`。
+- `source`：`netease`、`qq`、`kugou` 或 `qishui`；`sourceId`：网易云歌曲 ID、QQ 歌曲 `mid`、酷狗歌曲 `hash` 或汽水歌曲 ID。
 - `targetPlaylistCreated`：目标歌单是否为本次新建。
 - `status`：`downloading`（下载中）、`matching`（站外匹配中）、`imported`（本次新入库）、`existed`（已有曲目）、`failed`（失败，见 `message`）。
 - `progress` 为下载阶段进度，`percent` 为 `-1` 表示上游未返回 `Content-Length`。
@@ -2546,6 +2613,8 @@ const neteaseUrl = `${base}/netease/pull?playlistId=7011264340&targetPlaylistId=
 const qqUrl = `${base}/qq/pull?disstid=7011264340&targetPlaylistName=${encodeURIComponent('我的导入歌单')}&token=${encodeURIComponent(token)}`;
 // 方式三：酷狗歌单导入（listid 支持数字 ID / 链接 / gcid 分享链接）
 const kugouUrl = `${base}/kugou/pull?listid=${encodeURIComponent('1234567')}&targetPlaylistId=12&token=${encodeURIComponent(token)}`;
+// 方式四：汽水音乐歌单导入（playlist_id 支持数字 ID / 分享链接 / 短链）
+const qishuiUrl = `${base}/qishui/pull?playlist_id=${encodeURIComponent('7434476168507637799')}&targetPlaylistId=12&token=${encodeURIComponent(token)}`;
 
 function importPlaylist(url) {
   const es = new EventSource(url);
@@ -2560,7 +2629,7 @@ importPlaylist(neteaseUrl);
 // importPlaylist(kugouUrl);
 ```
 
-**说明**：上述导入接口（`/loser/{netease|qq|kugou}/pull`）必须携带用户令牌，且必须指定 `targetPlaylistId` 或 `targetPlaylistName`；站外匹配与下载全部在服务端完成。`source` 为 `kugou` 时曲目只有元数据，后端会先做站内匹配、再从网易云补全。
+**说明**：上述导入接口（`/loser/{netease|qq|kugou|qishui}/pull`）必须携带用户令牌，且必须指定 `targetPlaylistId` 或 `targetPlaylistName`；站外匹配与下载全部在服务端完成。`source` 为 `kugou`、`qishui` 时曲目只有元数据，后端会先做站内匹配、再从网易云补全。
 
 ---
 
@@ -3224,10 +3293,11 @@ async function getFavoritePlaylistMusic(playlistId) {
    - 新增 API：`GET /api/user/favorite-playlists/{id}` - 获取收藏歌单内音乐（需要登录）
 
 12. **外部歌单导入:**
-   - 支持网易云、QQ、酷狗三家音源的歌单导入，统一走 `/loser/{netease|qq|kugou}/pull`，进度通过 SSE 返回。
+   - 支持网易云、QQ、酷狗、汽水音乐四家音源的歌单导入，统一走 `/loser/{netease|qq|kugou|qishui}/pull`，进度通过 SSE 返回。
    - 全部需要登录（`Authorization` / `?token=`），且必须指定 `targetPlaylistId` 或 `targetPlaylistName`。
-   - 酷狗仅提供元数据（歌名 / 歌手 / hash），入库前会先站内匹配、再从网易云补全，未命中曲目以 `status: failed` 回报。
-   - 另提供 `GET /loser/kugou/getSongListDetail?listid=` 代理酷狗歌单详情（无需登录，仅元数据）。
+   - 酷狗 / 汽水仅提供元数据（歌名 / 歌手），入库前会先站内匹配、再从网易云补全，未命中曲目以 `status: failed` 回报。
+   - 另提供 `GET /loser/kugou/getSongListDetail?listid=` 与 `GET|POST /loser/qishui/getSongListDetail?playlist_id=` 代理歌单详情（无需登录，仅元数据）。
+   - 汽水歌单支持纯 ID、分享链接与短链；公开歌单免登录，已登录时自动带 `sessionid` 读取私密歌单。
 
 ---
 
