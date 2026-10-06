@@ -17,16 +17,17 @@
 | --- | --- | --- |
 | 0 | 路径为 `/api/payment/zpay/notify` | **直接放行**（支付平台回调，豁免防爬与限流） |
 | 0.5 | **User-Agent 为空** | **直接放行**（NekoMusic PC 等 Qt 桌面端默认不发送 UA，交 IP 限流兜底；有 UA 的未知爬虫仍走下方拦截） |
-| 1 | UA 命中**已知爬虫 / 无头 / 命令行 / 安全扫描器**关键词 | **转 SEO**（GET/HEAD → 302；其它方法 → 403） |
+| 1 | UA 命中**已知爬虫 / 无头 / 命令行 / 安全扫描器**关键词 | **直出 SEO**（GET/HEAD → 200 HTML；其它方法 → 403） |
 | 2 | UA 命中**放行名单**（`network.allow_client_user_agents`） | 放行 |
 | 3 | UA 为**内置原生客户端**（Android okhttp/Dalvik、PC NekoMusic/Qt/Electron、播放器 libmpv/VLC/FFmpeg 等） | 放行 |
 | 4 | UA **结构像真浏览器** 且请求带**浏览器特征头** | 放行 |
-| 5 | 其余（未知爬虫、残缺/仅伪造 UA、扫描器） | **转 SEO**（GET/HEAD → 302；其它方法 → 403） |
+| 5 | 其余（未知爬虫、残缺/仅伪造 UA、扫描器） | **直出 SEO**（GET/HEAD → 200 HTML；其它方法 → 403） |
 
 第 2~5 步属于**浏览器完整性区分拦截**，可用 `network.browser_integrity_enabled=false` 关闭（关闭后退化为仅第 1 步黑名单）。
 
-> **「转 SEO」含义**：爬虫访问 `/api/*` 时不再直接 403，而是 `GET`/`HEAD` 返回 **302 跳转**到对应的
-> 服务端渲染 SEO 页面，让抓取器拿到可索引内容；`POST`/`PUT` 等没有对应 SEO 页的方法仍返回 `403`。
+> **「直出 SEO」含义**：爬虫访问 `/api/*` 时不再直接 403，也**不做 302 跳转**，而是 `GET`/`HEAD`
+> **直接返回 `200` + 对应 SEO 页的服务端 HTML**（服务端内部 forward，URL 不变），让抓取器一次拿到可索引内容；
+> `POST`/`PUT` 等没有对应 SEO 页的方法仍返回 `403`。
 > 页面路由（首页 / 下载 / 关于 / 隐私 / 排行榜 / 最新 / 搜索、`/detail/{id}`、`/playlist/{id}`）
 > 同样使用本判定：**爬虫（含伪造浏览器 UA 但缺特征头者）返回 SEO HTML，真浏览器返回前端 SPA**。
 
@@ -72,9 +73,10 @@ UA 含下列标记之一即放行：`okhttp`、`dalvik`、`libmpv`、`mpv/`、`v
 
 ## 2. 命中响应
 
-**转 SEO（GET / HEAD）** —— 返回 `302 Found`，`Location` 指向对应 SEO 页面，`Cache-Control: private, no-store`：
+**直出 SEO（GET / HEAD）** —— 返回 `200 OK` + 对应 SEO 页 HTML（`Content-Type: text/html;charset=utf-8`），
+不做 302 跳转；同一 URL 对爬虫与浏览器表现不同，因此固定带 `Vary: User-Agent` 与 `Cache-Control: private, no-store`：
 
-| 被访问的 `/api` 路径 | 跳转目标 |
+| 被访问的 `/api` 路径 | 直出的 SEO 页面 |
 | --- | --- |
 | `/api/music/ranking` | `/ranking` |
 | `/api/music/latest` | `/latest` |
@@ -82,7 +84,8 @@ UA 含下列标记之一即放行：`okhttp`、`dalvik`、`libmpv`、`mpv/`、`v
 | `/api/music/info/{id}`、`cover/{id}`、`file/{id}`、`lyrics/{id}` | `/detail/{id}` |
 | 其它 | `/`（首页） |
 
-请求方（爬虫）跟随跳转后，会命中页面路由并拿到 SEO HTML。
+直出的 HTML 自带 `<link rel="canonical">`（例如 `/api/music/info/42` 的 canonical 指向 `/detail/42`），
+因此与正式页面不构成重复内容，搜索引擎会把权重归到正式页。
 
 **非 GET / HEAD 方法** —— 没有对应 SEO 页面，返回 **403**，响应体与全局错误契约一致：
 
@@ -141,8 +144,9 @@ IP 频率限制见 `rate_limit` 段（按 /24 聚合计数与封锁，超限返�
 
 ## 5. 与 SEO 抓取的关系
 
-搜索引擎等需要被收录的抓取器**不应读取 JSON 接口**。当它们访问 `/api/*` 时，服务端会以 `302`
-把它们引导到对应的服务端渲染页面（详见第 2 节映射），最终拿到可索引的 SEO HTML，而不是 JSON 或 SPA 壳。
+搜索引擎等需要被收录的抓取器**不应读取 JSON 接口**。当它们访问 `/api/*` 时，服务端会**直接返回**
+对应服务端渲染页面的 HTML（`200`，详见第 2 节映射），拿到可索引内容而不是 JSON 或 SPA 壳；
+不使用 `302` 跳转，避免把抓取配额与权重消耗在跳转上。
 页面路由本身也遵循同一套爬虫判定（真浏览器 → SPA，爬虫 / 伪浏览器 UA → SEO HTML）。
 
 ---
@@ -160,4 +164,3 @@ IP 频率限制见 `rate_limit` 段（按 /24 聚合计数与封锁，超限返�
 | `X-Frame-Options` | `SAMEORIGIN` |
 | `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` |
 | `Strict-Transport-Security` | 由 Nginx / CDN 在 TLS 层下发（见 `deploy/nginx.cdn.conf`），后端明文 HTTP 不下发 |
-

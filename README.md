@@ -9,7 +9,7 @@ Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用�
 
 **基础 URL:** `https://music.nekocore.cn`
 
-> **接口防护：** `/api/*` 启用防爬与客户端区分拦截（识别已知爬虫、安全扫描器与未知 / 小众抓取脚本）。爬虫的 `GET`/`HEAD` 请求会 **302 跳转到对应 SEO 页面**（可索引，不再是 SPA / JSON），其它方法返回 `403`；单 IP 超频返回 `429`。判定规则、跳转映射、放行名单与配置见专项文档 [防爬与客户端识别（专项）](API-防爬与客户端识别.md)。
+> **接口防护：** `/api/*` 启用防爬与客户端区分拦截（识别已知爬虫、安全扫描器与未知 / 小众抓取脚本）。爬虫的 `GET`/`HEAD` 请求会 **直接返回对应 SEO 页面的 HTML**（`200`，可索引，不再是 SPA / JSON；不做 302 跳转），其它方法返回 `403`；单 IP 超频返回 `429`。判定规则、页面映射、放行名单与配置见专项文档 [防爬与客户端识别（专项）](API-防爬与客户端识别.md)。
 
 ## 目录
 
@@ -1729,6 +1729,7 @@ Content-Type: application/json
       "duration": 269,
       "uploadUserId": 0,
       "createdAt": "2024-01-01 12:00:00.0",
+      "maxQuality": "sq",
       "lrc": true
     }
   ]
@@ -1781,7 +1782,8 @@ Content-Type: application/json
       "album": "叶惠美",
       "duration": 269,
       "uploadUserId": 0,
-      "createdAt": "2024-01-01 12:00:00.0"
+      "createdAt": "2024-01-01 12:00:00.0",
+      "maxQuality": "sq"
     },
     null,
     {
@@ -1791,7 +1793,8 @@ Content-Type: application/json
       "album": "未知专辑",
       "duration": 200,
       "uploadUserId": 0,
-      "createdAt": "2026-05-24 10:00:00.0"
+      "createdAt": "2026-05-24 10:00:00.0",
+      "maxQuality": "hires"
     }
   ]
 }
@@ -1817,6 +1820,7 @@ Content-Type: application/json
 | `duration` | number | 时长（秒） |
 | `uploadUserId` | number | 上传用户 ID，无则为 0 |
 | `createdAt` | string | 入库时间 |
+| `maxQuality` | string \| null | 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）。与 `GET /api/music/info/{id}` 的 `maxQuality` 同义 |
 
 **资源 URL（由客户端按 `id` 拼接，响应中不再返回路径字段）:**
 - 音频：`GET /api/music/file/{id}`
