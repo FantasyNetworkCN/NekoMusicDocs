@@ -244,11 +244,15 @@ Authorization: <token>
       "artist": "艺术家",
       "album": "专辑",
       "duration": 180,
+      "maxQuality": "sq",
       "filename": "song.mp3"
     }
   ]
 }
 ```
+
+**字段说明:**
+- `maxQuality`: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
 
 ### 8. 添加收藏
 
@@ -447,6 +451,7 @@ Authorization: <token>
       "artist": "艺术家",
       "album": "专辑",
       "duration": 180,
+      "maxQuality": "sq",
       "filename": "song.mp3",
       "position": 1
     }
@@ -464,6 +469,7 @@ Authorization: <token>
 
 **说明:**
 - 只有收藏过该歌单的用户才能查看歌单内的音乐
+- `maxQuality`: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
 - 音乐按 position 字段升序排列
 
 ### 14. 获取每日推荐
@@ -496,6 +502,7 @@ Authorization: <token>
       "album": "绝区零-天使加载中…^_−☆",
       "language": "日语",
       "tags": "二次元，日语，游戏",
+      "maxQuality": "sq",
       "score": 4.93,
       "source": "ai",
       "reason": "与近期收藏艺人和标签更匹配"
@@ -507,6 +514,7 @@ Authorization: <token>
 **字段说明:**
 - `date`: 推荐结果所属日期（东八区）
 - `count`: 返回条数
+- `maxQuality`: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
 - `source`: 推荐来源（`ai` 或 `rule`）
 - `reason`: 推荐理由（用于前端展示）
 
@@ -821,6 +829,7 @@ Authorization: <token>
       "language": "中文",
       "tags": "流行,华语",
       "fileFormat": "mp3",
+      "maxQuality": "sq",
       "createdAt": "2026-02-16T10:00:00"
     }
   ],
@@ -844,6 +853,7 @@ Authorization: <token>
 - 每首音乐包含：
   - id, title, artist, album, duration
   - language, tags, fileFormat
+  - maxQuality: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`
   - createdAt: 创建时间
 
 **使用场景:**
@@ -1392,6 +1402,7 @@ Authorization: <token>
       "duration": 180,
       "fileFormat": "mp3",
       "language": "中文",
+      "maxQuality": "sq",
       "position": 1,
       "addedAt": "2026-01-29 12:00:00"
     }
@@ -1410,6 +1421,7 @@ Authorization: <token>
 **说明:**
 - 音乐列表按照 `position` 字段升序排列
 - 返回的音乐信息包含完整的歌曲详情和添加时间
+- `maxQuality`: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
 - 此 API **无需登录**即可访问（后端已移除 token 验证）
 - 任何用户（包括未登录用户）都可以查看歌单内容
 
@@ -1942,6 +1954,7 @@ curl -sS -X POST 'https://music.nekocore.cn/api/music/recognize' \
     "filePath": "/api/music/file/1",
     "coverFilePath": "/api/music/cover/1",
     "coverUrl": "/api/music/cover/1",
+    "maxQuality": "sq",
     "confidence": 0.8842,
     "matchedLandmarks": 31,
     "offsetSeconds": 42.31,
@@ -1952,6 +1965,7 @@ curl -sS -X POST 'https://music.nekocore.cn/api/music/recognize' \
 
 | 字段 | 说明 |
 |------|------|
+| `maxQuality` | 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null` |
 | `confidence` | 匹配置信度，范围 `0–1`；仅返回达到服务端阈值的结果 |
 | `matchedLandmarks` | 对齐的声纹特征数量 |
 | `offsetSeconds` | 录音片段在歌曲中的估计起始位置（秒） |
@@ -2020,6 +2034,7 @@ curl -sS -X POST 'https://music.nekocore.cn/api/music/recognize' \
       "duration": 180,
       "language": "中文",
       "tags": "流行",
+      "maxQuality": "sq",
       "playCount": 100
     }
   ]
@@ -2036,6 +2051,7 @@ curl -sS -X POST 'https://music.nekocore.cn/api/music/recognize' \
   - language: 语言
   - tags: 标签
   - playCount: 播放次数
+  - maxQuality: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
 
 **使用场景:**
 - 首页展示热门音乐
@@ -2084,6 +2100,7 @@ async function getMusicRanking(limit = 200) {
       "language": "中文",
       "tags": "流行",
       "fileFormat": "mp3",
+      "maxQuality": "sq",
       "createdAt": 1704067200000
     }
   ]
@@ -2099,6 +2116,7 @@ async function getMusicRanking(limit = 200) {
   - language: 语言
   - tags: 标签
   - fileFormat: 音频文件格式（mp3/flac/wav）
+  - maxQuality: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
   - createdAt: 创建时间（Unix 时间戳，毫秒）
 
 **使用场景:**
@@ -3385,7 +3403,8 @@ Content-Type: application/json
         "album": "七里香",
         "duration": 298,
         "fileFormat": "mp3",
-        "language": "中文"
+        "language": "中文",
+        "maxQuality": "sq"
       },
       {
         "id": 2,
@@ -3394,7 +3413,8 @@ Content-Type: application/json
         "album": "叶惠美",
         "duration": 269,
         "fileFormat": "mp3",
-        "language": "中文"
+        "language": "中文",
+        "maxQuality": "hires"
       }
     ]
   }
@@ -3422,6 +3442,7 @@ Content-Type: application/json
   - 歌手名称（name）
   - 该歌手的音乐数量（musicCount）
   - 该歌手的所有音乐列表（musicList），包含完整的音乐信息
+  - musicList 每项含 `maxQuality`：该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`
 - 如果没有找到匹配的歌手，返回空的歌手信息和空的音乐列表
 
 **注意事项:**
