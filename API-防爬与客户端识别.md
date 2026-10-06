@@ -108,7 +108,17 @@ UA 含下列标记之一即放行：`okhttp`、`dalvik`、`libmpv`、`mpv/`、`v
 ```yaml
 network:
   # 可信客户端 IP 头（影响评论归属地与 IP 限流；详见主文档与部署说明）
-  trusted_client_ip_header: X-Real-IP
+  #   auto        —— 默认。自适应多家 CDN：依次尝试 CF-Connecting-IP / True-Client-IP /
+  #                  Ali-CDN-Real-IP / X-Edge-Real-IP / Fastly-Client-IP / X-Client-IP /
+  #                  X-Azure-ClientIP，再退到 X-Forwarded-For（自动摘掉本机 Nginx 追加的回源那一跳）、
+  #                  X-Real-IP，最后退到 socket 对端。换 CDN 不用改配置、不用维护回源 IP 段。
+  #   X-Real-IP   —— 只信该头（Nginx 用 proxy_set_header 覆盖写入，客户端无法伪造）。
+  #   direct / 留空 —— 忽略一切转发头，只用 socket 对端，最严格。
+  trusted_client_ip_header: auto
+
+  # 仅 auto 模式生效：额外登记「优先尝试」的自定义客户端 IP 头名（内置清单已覆盖常见 CDN，
+  # 换了清单之外的新 CDN 时在此加一行即可，无需改代码或发版）
+  extra_client_ip_headers: []
 
   # 总开关：关闭后 /api 不再做任何防爬拦截
   crawler_protection_enabled: true
@@ -122,6 +132,23 @@ network:
 ```
 
 IP 频率限制见 `rate_limit` 段（按 /24 聚合计数与封锁，超限返回 429 与 `Retry-After`）。
+
+### 3.1 客户端 IP 解析（多 CDN 自适应）
+
+统一由 `util/ClientIpResolver` 解析，评论归属地（`/api/comments` 的 `ipRegion`）、IP 限流、歌词接口、
+支付水皮下发、听歌识曲等共用同一来源。
+
+- `auto`（默认）按顺序取第一个命中的头：
+  1. `network.extra_client_ip_headers` 中登记的自定义头（可选，便于适配清单外的新 CDN）；
+  2. CDN 专用单值头 `CF-Connecting-IP` → `True-Client-IP` → `Ali-CDN-Real-IP` → `X-Edge-Real-IP` →
+     `Fastly-Client-IP` → `X-Client-IP` → `X-Azure-ClientIP` → `CloudFront-Viewer-Address`；
+  3. `X-Forwarded-For`：先摘掉本机 Nginx 用 `$proxy_add_x_forwarded_for` 追加的一格回源地址
+     （即与 `X-Real-IP` 相同的那一格），再取最右一格，避免取到 CDN 回源 IP；
+  4. `X-Real-IP`；
+  5. socket 对端地址。
+- 安全边界：`auto` 只有在 socket 对端是回环 / 内网 / IPv6 ULA 地址（说明请求确实经过本机反向代理）
+  时才信任上述转发头；后端被公网直连时一律使用 socket 对端地址，杜绝伪造归属地。
+- 若源站可被公网直连、需要最严格的防伪造，请把该项改为 `X-Real-IP` 或 `direct`。
 
 ---
 

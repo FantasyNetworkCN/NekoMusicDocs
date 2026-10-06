@@ -2275,7 +2275,7 @@ curl -X DELETE 'https://music.nekocore.cn/api/comments?id=14' \
 ### 说明
 
 - **时间**：`createdAt` 为东八区(UTC8)墙钟时间（`yyyy-MM-dd HH:mm:ss`）。
-- **IP 归属地**：`ipRegion` 是发表时用本地 MaxMind GeoIP2 / GeoLite2 数据库解析的快照，IPv4 / IPv6 均支持；未部署数据库或属于内网时为「未知」/「本地」，不请求任何第三方接口。展示上国内只取市级（无市级时退到省 / 自治区名，如 `上海`、`贵州`），港澳台统一带「中国」前缀（`中国香港` / `中国澳门` / `中国台湾`），国外取国家名。
+- **IP 归属地**：`ipRegion` 是发表时用本地 MaxMind GeoIP2 / GeoLite2 数据库解析的快照，IPv4 / IPv6 均支持；未部署数据库或属于内网时为「未知」/「本地」，不请求任何第三方接口。展示上国内只取市级（无市级时退到省 / 自治区名，如 `上海`、`贵州`），港澳台统一带「中国」前缀（`中国香港` / `中国澳门` / `中国台湾`），国外取国家名。客户端 IP 来源由 `network.trusted_client_ip_header` 决定（默认 `auto`：自适应 Cloudflare / 阿里云 CDN / 腾讯云 EdgeOne / Fastly 等多家 CDN 的专用头，并兼容只带 `X-Forwarded-For` 的 CDN，自动跳过本机 Nginx 追加的回源那一跳），避免把 CDN 回源 IP 当成客户端解析（详见「API 防爬与客户端识别」文档）。
 - **头像**：接口只返回 `user.id`，客户端按 `/api/user/avatar/{userId}` 取图。
 
 ---
