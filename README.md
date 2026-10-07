@@ -17,6 +17,7 @@ Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用�
 - [用户相关 API](#用户相关-api)
 - [滑块人机验证与注册邮箱验证码（专项）](API-滑块与人机验证.md)
 - [防爬与客户端识别（专项）](API-防爬与客户端识别.md)
+- [请求防重放（专项）](API-请求防重放.md)
 - [歌单相关 API](#歌单相关-api)
 - [歌手相关 API](#歌手相关-api)
 - [VIP 与价目 API](#vip-与价目-api)
@@ -42,6 +43,28 @@ Authorization: <token>
 Token 在用户登录时生成并返回给客户端。
 
 **Token 有效期:** 30 天
+
+### 防重放 nonce（所有动态接口）
+
+除白名单外，**所有动态接口**（`/api/*`、`/loser/*`）都必须携带一次性请求头 `X-Neko-Nonce`，
+否则返回 `409`：
+
+```
+X-Neko-Nonce: <32 位十六进制字符串>
+```
+
+- 领取：`GET /api/replay/nonce`（可批量领取，见专项文档）。
+- 每个 nonce **只能使用一次**；重放同一个请求会被拒绝（`409`）。
+- nonce 绑定「客户端 IP + 读/写类别（GET 为读，POST/PUT/PATCH/DELETE 为写）」，默认 120 秒过期。
+- 用于换取音质解析结果的 `GET /api/music/file/{id}` 也在保护范围内。
+- 静态资源（`/media/*`、`/assets/*`、安装包）不校验，其缓存行为不变。
+
+白名单（无需 nonce）：`/api/replay/nonce`、`/api/music/latest`、`/api/music/ranking`、
+封面 `/api/music/cover/*`、头像 `/api/user/avatar/*`、扫码登录 SSE `/api/user/qrlogin/status`、
+`/loser/*/pull`（SSE）、支付回调 `/api/payment/zpay/notify`、`multipart/form-data` 上传、
+以及 `OPTIONS` / `HEAD`。
+
+详见 **[请求防重放（专项）](API-请求防重放.md)**。
 
 ---
 
@@ -1874,6 +1897,12 @@ Content-Type: application/json
 
 **端点:** `GET /api/music/file/{id}`
 
+**请求头:**
+
+```
+X-Neko-Nonce: <一次性 nonce>   // 必填，见「防重放 nonce（所有动态接口）」
+```
+
 **路径参数:**
 - `id`: 音乐 ID
 
@@ -1899,12 +1928,38 @@ GET /api/music/file/1?quality=hq
 - 请求的音质高于歌曲实际最高音质时，返回歌曲原始最高音质。
 - 未传 `quality` 时按 `hq` 请求；歌曲不支持 `hq` 时返回 `standard` 或原始音源。
 
-**响应:**
+**响应示例（成功）:**
 
-- 接口返回 `302 Found`，通过 `Location` 重定向到站内固定媒体 URL。
-- 重定向后的媒体地址支持 `Range`、`ETag` 和 CDN 缓存。
+```json
+{
+  "success": true,
+  "message": "",
+  "data": {
+    "url": "/media/music/1_xxx.mp3"
+  }
+}
+```
+
+- `data.url` 是站内固定媒体地址，请再对它发起一次普通 GET：支持 `Range`、`ETag`，并由 CDN 共享缓存。
 - `Content-Type` 根据实际文件格式返回，例如 `audio/mpeg`、`audio/flac`。
 - 首次请求 `standard` 或 `hq` 时，服务端会使用原生 FFmpeg 压缩并写入磁盘；后续请求直接复用缓存文件。
+
+**响应示例（失败）:**
+
+```json
+{
+  "success": false,
+  "message": "请求已失效，请刷新后重试"
+}
+```
+
+> **破坏性变更（需要客户端适配）**
+> 本接口不再返回 `302` 重定向，而是返回 `200` + JSON `data.url`，并且必须携带 `X-Neko-Nonce`。
+> **迁移方式**：先调 `GET /api/replay/nonce` 领取 nonce，再带 `X-Neko-Nonce` 调本接口，最后 GET
+> `data.url` 取音频字节。**注意**：`data.url` 是固定的媒体地址，可被重复访问；防重放保护的是「音质
+> 解析」这一次请求，并不能阻止别人复用已经拿到手的媒体地址。
+
+**状态码:** `200` 成功；`409` 缺少 / 重放 / 过期 nonce；`404` 音乐不存在或音质处理失败；`400` 无效的音乐 ID。
 
 ### 4. 获取音乐封面
 
@@ -2709,7 +2764,7 @@ importPlaylist(neteaseUrl);
 | 401 | 未授权，需要登录或 Token 无效 |
 | 403 | 禁止访问，权限不足 |
 | 404 | 资源不存在 |
-| 409 | 资源状态冲突（如视频尚未渲染完成） |
+| 409 | 资源状态冲突（如视频尚未渲染完成）；动态接口缺少 / 重放一次性 nonce |
 | 429 | 请求过于频繁或超出每日配额 |
 | 503 | 服务不可用（功能关闭或渲染队列已满） |
 | 500 | 服务器内部错误 |
