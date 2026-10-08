@@ -54,7 +54,7 @@ X-Neko-Nonce: <nonce>
 ```
 
 - 领取（必填两步）：先 `GET /api/replay/challenge` 换题并解出 `proof`，再带 `challenge` / `proof`
-  调 `GET /api/replay/nonce` 兑换；不带挑战的领取会被拒绝（`400`，见专项文档）。
+  调 `GET /api/replay/nonce` 兑换；不带挑战的领取会被拒绝（`409`，见专项文档）。
 - 每个 nonce **只能使用一次**；重放同一个请求会被拒绝（`409`），且被拒的请求不会执行。
 - nonce 分读 / 写两类（`GET` 用读类别，写方法用写类别），短时有效，过期后重新领取。
 - nonce 的具体形态、有效期与判定规则属服务端安全实现，不对外公开。
