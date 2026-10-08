@@ -18,14 +18,7 @@
 
 - 每个 **`captchaToken`** 在调用一次 `slider/verify` 后即作废（无论对错）。
 - 每个 **`captchaPassToken`** 仅可使用一次，用于一次 `send-verification`；过期或重复使用会失败。
-- 服务端拼图水平容差为 **±5 像素**（与实现一致）。
-
-**时效（实现常量，供联调参考）：**
-
-| 对象 | 说明 |
-|------|------|
-| 挑战 `captchaToken` | 签发后约 **3 分钟**内有效；`verify` 会消费该 token |
-| `captchaPassToken` | 校验通过后签发，约 **2 分钟**内须用于 `send-verification`，且一次性 |
+- 两个令牌均为**短时有效**：过期即失效，重新获取即可；具体时长与位移判定策略属服务端实现，不对外公开。
 
 ---
 
@@ -33,7 +26,7 @@
 
 **方法/路径：** `GET /api/captcha/slider`
 
-**请求头：** 无强制要求；浏览器跨域时服务端已返回 `Access-Control-Allow-Origin: *`。
+**请求头：** 无强制要求。
 
 **请求体：** 无。
 
@@ -62,8 +55,8 @@
 | `bgImage` | string | 背景图 Data URL（PNG） |
 | `sliderImage` | string | 滑块拼图块 Data URL（PNG） |
 | `puzzleY` | number | 拼图块在背景上的 **Y** 偏移（像素） |
-| `bgWidth` / `bgHeight` | number | 背景图尺寸（当前实现固定为 300×180） |
-| `sliderWidth` / `sliderHeight` | number | 拼图块尺寸（当前实现固定为 52×52） |
+| `bgWidth` / `bgHeight` | number | 背景图尺寸（以响应数值为准） |
+| `sliderWidth` / `sliderHeight` | number | 拼图块尺寸（以响应数值为准） |
 
 **失败示例：**
 
@@ -169,8 +162,8 @@ Content-Type: application/json
 |------|-------------|------|
 | 未带或空 `captchaPassToken` | false | `message` 如：`请先完成安全验证（滑动拼图）` |
 | `captchaPassToken` 无效、过期或已使用 | false | `message` 如：`安全验证已失效或已使用，请重新滑动验证` |
-| 邮箱格式错误 / 非白名单域名等 | false | 以服务端返回 `message` 为准 |
-| 发送频率限制 | false | HTTP **429**，响应头 `Retry-After` 为建议等待秒数；JSON `data` 中含 `retryAfterSec`（整数秒） |
+| 邮箱格式错误 / 域名不受支持等 | false | 以服务端返回 `message` 为准 |
+| 发送频率限制 | false | 以服务端返回的状态码与 `message` 为准（可能为 `429`，请退避后重试） |
 
 ---
 
@@ -182,9 +175,9 @@ Content-Type: application/json
 
 ---
 
-## 5. 跨域与 OPTIONS
+## 5. 跨域策略
 
-上述接口在 Servlet 中设置了 `Access-Control-Allow-Origin: *` 等头。若浏览器发起预检 `OPTIONS`，需保证网关/容器对 OPTIONS 返回成功并与业务 CORS 策略一致（与主站其它公开 API 相同）。
+与主站其它公开 API 采用一致的跨域策略，浏览器可直接调用。
 
 ---
 
