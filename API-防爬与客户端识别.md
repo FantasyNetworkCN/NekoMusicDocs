@@ -16,7 +16,7 @@
 | 顺序 | 判定 | 命中动作 |
 | --- | --- | --- |
 | 0 | 路径为 `/api/payment/zpay/notify` | **直接放行**（支付平台回调，豁免防爬与限流） |
-| 0.5 | **User-Agent 为空** | **直接放行**（NekoMusic PC 等 Qt 桌面端默认不发送 UA，交 IP 限流兜底；有 UA 的未知爬虫仍走下方拦截） |
+| 0.5 | **User-Agent 为空 / 缺失** | **直出 SEO**（与第 1 步同处理：GET/HEAD → 200 HTML；其它方法 → 403。客户端必须显式携带 UA，不能靠省略 UA 绕过校验） |
 | 1 | UA 命中**已知爬虫 / 无头 / 命令行 / 安全扫描器**关键词 | **直出 SEO**（GET/HEAD → 200 HTML；其它方法 → 403） |
 | 2 | UA 命中**放行名单**（`network.allow_client_user_agents`） | 放行 |
 | 3 | UA 为**内置原生客户端**（Android okhttp/Dalvik、PC NekoMusic/Qt/Electron、播放器 libmpv/VLC/FFmpeg 等） | 放行 |
@@ -24,6 +24,10 @@
 | 5 | 其余（未知爬虫、残缺/仅伪造 UA、扫描器） | **直出 SEO**（GET/HEAD → 200 HTML；其它方法 → 403） |
 
 第 2~5 步属于**浏览器完整性区分拦截**，可用 `network.browser_integrity_enabled=false` 关闭（关闭后退化为仅第 1 步黑名单）。
+
+> **空 UA 视同爬虫（第 0.5 步）**：**所有客户端都必须显式携带 `User-Agent`**。不带 UA 的请求（浏览器、Android
+> `NekoMusic-android/<版本>`、PC `NekoMusic-PC/<版本>` 之外的脚本）与已知爬虫同处理：`GET`/`HEAD` 只返回 SEO HTML，
+> 其它方法 `403`。此前「空 UA 直接放行」的豁免已移除——它不是反重放，而是防爬与浏览器完整性两层校验的旁路。
 
 > **「直出 SEO」含义**：爬虫访问 `/api/*` 时不再直接 403，也**不做 302 跳转**，而是 `GET`/`HEAD`
 > **直接返回 `200` + 对应 SEO 页的服务端 HTML**（服务端内部 forward，URL 不变），让抓取器一次拿到可索引内容；
@@ -157,8 +161,8 @@ IP 频率限制见 `rate_limit` 段（按 /24 聚合计数与封锁，超限返�
 - **浏览器 / Web 前端**：无需任何改动（真实浏览器天然满足结构与特征头校验）。
 - **应用内 WebView（微信 / QQ / 支付宝等）**：无需改动（UA 含 `AppleWebKit/`，且带浏览器特征头）。
 - **Android 客户端**：使用内置白名单内的 UA（如 `okhttp`、`dalvik`）即可。
-- **NekoMusic PC（Qt）**：无需改动。`ApiClient` 用 `QNetworkRequest` 默认**不发送 User-Agent**，服务端对空 UA 直接放行；封面请求 UA `NekoMusic Qt` 已在原生白名单内。
-- **其它 Qt / 桌面客户端**：若 UA 为空同样放行；若使用自定义 UA，请确保包含 `qt` 等内核标记，或用 `network.allow_client_user_agents` 登记。
+- **NekoMusic PC（Qt）**：无需改动。`NekoNetworkAccessManager` 会**强制统一**发出 `User-Agent: NekoMusic-PC/<版本>` 与 `X-Neko-Client: pc+<版本>`（调用方自定义 UA 会被覆盖），封面请求 UA `NekoMusic Qt` 也已在原生白名单内。
+- **其它 Qt / 桌面客户端**：必须显式携带 User-Agent（**空 UA 视同爬虫**，GET/HEAD 只会拿到 SEO HTML，其它方法 403）；请确保 UA 包含 `qt` 等内核标记，或用 `network.allow_client_user_agents` 登记。
 - **第三方客户端 / 脚本集成**：若 UA 不在内置白名单，请使用带版本号的自定义 UA，并加入
   `network.allow_client_user_agents` 登记放行，例如：
 
