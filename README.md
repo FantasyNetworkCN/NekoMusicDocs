@@ -53,14 +53,16 @@ Token 在用户登录时生成并返回给客户端。
 X-Neko-Nonce: <nonce>
 ```
 
-- 领取：`GET /api/replay/nonce`（可批量领取，见专项文档）。
+- 领取：先 `GET /api/replay/challenge` 换题并解出 `proof`，再带 `challenge` / `proof` 调
+  `GET /api/replay/nonce` 兑换（可批量领取，见专项文档）。
 - 每个 nonce **只能使用一次**；重放同一个请求会被拒绝（`409`），且被拒的请求不会执行。
 - nonce 分读 / 写两类（`GET` 用读类别，写方法用写类别），短时有效，过期后重新领取。
 - nonce 的具体形态、有效期与判定规则属服务端安全实现，不对外公开。
+- 换题与兑换都可能返回 `429`（过于频繁）或 `503`（暂时不可用），客户端应按专项文档重试。
 - 用于换取音质解析结果的 `GET /api/music/file/{id}` 也在保护范围内。
 - 静态资源（`/media/*`、`/assets/*`、安装包）不校验，其缓存行为不变。
 
-白名单（无需 nonce）：`/api/replay/nonce`、`/api/music/latest`、`/api/music/ranking`、
+白名单（无需 nonce）：`/api/replay/challenge`、`/api/replay/nonce`、`/api/music/latest`、`/api/music/ranking`、
 封面 `/api/music/cover/*`、头像 `/api/user/avatar/*`、扫码登录 SSE `/api/user/qrlogin/status`、
 `/loser/*/pull`（SSE）、支付回调 `/api/payment/zpay/notify`、`multipart/form-data` 上传、
 以及 `OPTIONS` / `HEAD`。
