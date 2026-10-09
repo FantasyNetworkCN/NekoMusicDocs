@@ -64,8 +64,8 @@ X-Neko-Nonce: <nonce>
 
 白名单（无需 nonce）：`/api/replay/challenge`、`/api/replay/nonce`、`/api/music/latest`、`/api/music/ranking`、
 封面 `/api/music/cover/*`、头像 `/api/user/avatar/*`、扫码登录 SSE `/api/user/qrlogin/status`、
-`/loser/*/pull`（SSE）、支付回调 `/api/payment/zpay/notify`、`multipart/form-data` 上传、
-以及 `OPTIONS` / `HEAD`。
+站内消息 SSE `/api/user/notifications/stream`、`/loser/*/pull`（SSE）、支付回调 `/api/payment/zpay/notify`、
+`multipart/form-data` 上传、以及 `OPTIONS` / `HEAD`。
 
 详见 **[请求防重放（专项）](API-请求防重放.md)**。
 
@@ -1099,10 +1099,14 @@ data: {"status":"confirmed","token":"登录令牌","user":{"id":1,...}}
 
 ---
 
+
 ### 22. 站内消息
 
 评论回复等消息会写入收件箱。消息在服务端落库后即视为送达，**离线期间产生的消息不会丢失**：
 客户端下次启动 / 回到前台时带上 `since` 补拉即可全部拿到，不依赖长连接。
+
+> **客户端约定：未读数没有单独接口，也不要轮询。** 它只来自收件箱列表响应与实时通道的
+> `ready` 帧。客户端需要做的是建立下面这条实时通道，并在启动 / 回到前台时按约定校准。
 
 **端点:** `GET /api/user/notifications`
 
@@ -1169,24 +1173,53 @@ Authorization: Bearer <token>
 
 ---
 
-**端点:** `GET /api/user/notifications/unread`
+**端点:** `GET /api/user/notifications/stream`
 
-**请求头:**
+**请求头:** 无需（`EventSource` 无法自定义请求头，令牌改走查询参数）
+
+**查询参数:**
+
+- `token`（必填）：用户令牌，等价于 `Authorization` 头
+
+**事件流（成功）:**
 
 ```
-Authorization: Bearer <token>
+retry: 3000
+
+event: ready
+data: {"unread":3,"latestId":128}
+
+id: 129
+event: message
+data: {"id":129,"type":"comment_reply","title":"喵喵 回复了你的评论","body":"这首我也很喜欢","link":"/detail/13751","read":false,"createdAt":"2026-10-09 12:31:02","actor":{"id":42,"nickname":"喵喵"}}
+
+: ping
 ```
 
-**响应示例（成功）:**
+- `ready`：连接建立（含自动重连）时下发一次，`data` 为 `{ "unread": <未读总数>, "latestId": <当前最大 id> }`
+- `message`：新消息，`data` 为单个消息对象，字段与列表里 `items` 的单条一致；帧上的 `id` 即该消息 id
+- 以 `:` 开头的行是保活心跳注释，客户端忽略即可
+
+**客户端约定:**
+
+- 消息落库即送达，**实时通道只是在线时的提前告知**；断开、重连、漏帧都不会丢消息，靠列表接口兜底
+- 每个标签页共用一条连接即可（顶栏红点与消息中心共用），不要为每个组件各开一条
+- 服务端到点会主动断开长连接，客户端依赖 `EventSource` 自动重连即可，不要自己写轮询兜底
+- 每次收到 `ready`：用 `latestId` 与本地保存的最大 id 比较，前者更大就用 `since=<本地最大 id>` 调列表接口补拉漏掉的消息（服务端不重放历史帧）
+- 未读数：以 `ready.unread` 为基准，收到未读的 `message` 时本地 +1，标记已读后用响应里的 `unread` 校准
+- 同时建立的连接数有上限；达到上限返回 `429`（带 `Retry-After`），按提示稍后重试而不是立刻重连
+
+**响应示例（失败）:**
 
 ```json
-{ "success": true, "message": "获取成功", "data": { "unread": 3 } }
+{ "success": false, "message": "请先登录" }
 ```
 
 **状态码:**
 
-- `200`: 成功
+- `200`: 成功（进入事件流）
 - `401`: 未登录 / 令牌无效
+- `429`: 连接数已达上限，需稍后重试
 
 ---
 

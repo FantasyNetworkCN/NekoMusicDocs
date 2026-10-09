@@ -188,6 +188,7 @@ X-Neko-Nonce: <nonce>
 | `/api/music/cover/*` | 封面图片，由浏览器原生图片请求加载，无法附带请求头 |
 | `/api/user/avatar/*` | 用户头像，同上 |
 | `/api/user/qrlogin/status` | 扫码登录状态流（SSE 长连接，浏览器会自动重连） |
+| `/api/user/notifications/stream` | 站内消息实时推送（SSE，`EventSource` 无法自定义请求头） |
 | `/loser/*/pull` | 歌单导入进度流（SSE） |
 | `/api/payment/zpay/notify` | 支付平台服务器回调，无法附带自定义请求头 |
 | `multipart/form-data` 请求 | 文件上传 |
