@@ -2,7 +2,7 @@
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko歌姬计划 署名及源码链接！
 
-#### 更新时间 2026年9月27日
+#### 更新时间 2026年10月9日
 ## 概述
 
 Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -530,8 +530,8 @@ Authorization: <token>
       "tags": "二次元，日语，游戏",
       "maxQuality": "sq",
       "score": 4.93,
-      "source": "ai",
-      "reason": "与近期收藏艺人和标签更匹配"
+      "source": "rule",
+      "reason": "基于收藏风格匹配"
     }
   ]
 }
@@ -541,7 +541,7 @@ Authorization: <token>
 - `date`: 推荐结果所属日期（东八区）
 - `count`: 返回条数
 - `maxQuality`: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
-- `source`: 推荐来源（`ai` 或 `rule`）
+- `source`: 推荐来源（当前固定为 `rule`，即规则召回与排序）
 - `reason`: 推荐理由（用于前端展示）
 
 ### 15. 上传用户头像
@@ -1096,6 +1096,128 @@ data: {"status":"confirmed","token":"登录令牌","user":{"id":1,...}}
   "data": { "status": "confirmed" }
 }
 ```
+
+---
+
+### 22. 站内消息
+
+评论回复等消息会写入收件箱。消息在服务端落库后即视为送达，**离线期间产生的消息不会丢失**：
+客户端下次启动 / 回到前台时带上 `since` 补拉即可全部拿到，不依赖长连接。
+
+**端点:** `GET /api/user/notifications`
+
+**请求头:**
+
+```
+Authorization: Bearer <token>
+```
+
+**查询参数:**
+
+- `since`（可选）：只返回 id 大于该值的新消息，用于补拉离线期间的消息；客户端保存上次响应里的
+  `latestId` 并在下次带入即可
+- `before`（可选）：只返回 id 小于该值的更早消息，用于翻历史；与 `since` 互斥（同时传时以 `since` 为准）
+- `limit`（可选）：单次返回条数，默认 20，最大 50
+
+**响应示例（成功）:**
+
+```json
+{
+  "success": true,
+  "message": "获取成功",
+  "data": {
+    "items": [
+      {
+        "id": 128,
+        "type": "comment_reply",
+        "title": "喵喵 回复了你的评论",
+        "body": "这首我也很喜欢",
+        "link": "/detail/13751",
+        "read": false,
+        "createdAt": "2026-10-09 12:30:05",
+        "actor": { "id": 42, "nickname": "喵喵" }
+      }
+    ],
+    "unread": 3,
+    "hasMore": false,
+    "latestId": 128
+  }
+}
+```
+
+**响应示例（未登录）:**
+
+```json
+{ "success": false, "message": "请先登录" }
+```
+
+**字段说明:**
+
+- `items`: 按 id 倒序（新的在前）
+- `type`: 消息类型，目前为 `comment_reply`（有人回复了你的评论）
+- `link`: 站内跳转路径（如歌曲详情页），无跳转时为空字符串
+- `read`: 是否已读；已读状态保存在服务端，多端一致
+- `actor`: 触发消息的用户（可能缺省）
+- `unread`: 当前未读总数（一次请求即可刷新红点）
+- `hasMore`: 是否还有更早的消息；为 `true` 时用当前最旧一条的 `id` 作为下一次 `before`
+- `latestId`: 本次返回中的最大 id；无数据时回显入参 `since`
+
+**状态码:**
+
+- `200`: 成功
+- `401`: 未登录 / 令牌无效
+
+---
+
+**端点:** `GET /api/user/notifications/unread`
+
+**请求头:**
+
+```
+Authorization: Bearer <token>
+```
+
+**响应示例（成功）:**
+
+```json
+{ "success": true, "message": "获取成功", "data": { "unread": 3 } }
+```
+
+**状态码:**
+
+- `200`: 成功
+- `401`: 未登录 / 令牌无效
+
+---
+
+**端点:** `POST /api/user/notifications/read`
+
+**请求头:**
+
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**请求体:**
+
+```json
+{ "ids": [128, 129] }
+```
+
+`ids` 为空数组或省略时表示**全部已读**。
+
+**响应示例（成功）:**
+
+```json
+{ "success": true, "message": "已标记为已读", "data": { "updated": 2, "unread": 1 } }
+```
+
+**状态码:**
+
+- `200`: 成功
+- `400`: 请求格式错误
+- `401`: 未登录 / 令牌无效
 
 ---
 
@@ -2285,6 +2407,9 @@ async function getLatestMusic(limit = 300) {
 | 内容长度 | 1~500 字 |
 | 违禁词 | 命中违禁词直接拒绝 |
 | 发帖间隔 | 同一用户两次发表至少间隔 5 秒，否则返回 429 |
+
+**说明:** 回复成功后会同时给对方写一条站内消息（见「站内消息」），回复自己不再提醒。
+站内消息写入失败不影响评论本身成功。
 
 **成功响应:**
 
