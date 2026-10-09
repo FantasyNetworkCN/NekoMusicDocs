@@ -1134,7 +1134,7 @@ Authorization: Bearer <token>
       {
         "id": 128,
         "type": "comment_reply",
-        "title": "喵喵 回复了你的评论",
+        "title": "喵喵 回复了你在《Neko》下的评论",
         "body": "这首我也很喜欢",
         "link": "/detail/13751",
         "read": false,
@@ -1159,6 +1159,7 @@ Authorization: Bearer <token>
 
 - `items`: 按 id 倒序（新的在前）
 - `type`: 消息类型，目前为 `comment_reply`（有人回复了你的评论）
+- `title`: 文案已写明涉及的歌曲，形如「喵喵 回复了你在《歌名》下的评论」
 - `link`: 站内跳转路径（如歌曲详情页），无跳转时为空字符串
 - `read`: 是否已读；已读状态保存在服务端，多端一致
 - `actor`: 触发消息的用户（可能缺省）
@@ -1191,7 +1192,7 @@ data: {"unread":3,"latestId":128}
 
 id: 129
 event: message
-data: {"id":129,"type":"comment_reply","title":"喵喵 回复了你的评论","body":"这首我也很喜欢","link":"/detail/13751","read":false,"createdAt":"2026-10-09 12:31:02","actor":{"id":42,"nickname":"喵喵"}}
+data: {"id":129,"type":"comment_reply","title":"喵喵 回复了你在《Neko》下的评论","body":"这首我也很喜欢","link":"/detail/13751","read":false,"createdAt":"2026-10-09 12:31:02","actor":{"id":42,"nickname":"喵喵"}}
 
 : ping
 ```
