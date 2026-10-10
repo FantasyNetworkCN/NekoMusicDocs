@@ -2687,8 +2687,9 @@ async function downloadVideoClip(jobId, filename = 'clip.mp4') {
 - **导入后目标歌单的曲目顺序与来源歌单保持一致**：命中的曲目按来源顺序追加到目标歌单末尾
   （导入到已有歌单时排在原有曲目之后）；匹配或下载失败的曲目会被跳过，其余曲目相对顺序不变。
 - **导入结束（成功或失败）后会给发起人写一条站内消息**（`type` 为 `playlist_import`，标题写明
-  目标歌单与本次结果，`link` 指向该歌单）。在线时经 `GET /api/user/notifications/stream` 实时推送，
-  离线时下次打开消息中心补拉即可看到。
+  目标歌单，正文按歌单口径给出三档数量：成功加入目标歌单、已在目标歌单中而跳过、失败；
+  `link` 指向该歌单）。在线时经 `GET /api/user/notifications/stream` 实时推送，离线时下次打开
+  消息中心补拉即可看到。
 
 ### 认证方式
 
@@ -2865,7 +2866,8 @@ Authorization: Bearer <token>
 
 - `source`：`netease`、`qq`、`kugou` 或 `qishui`；`sourceId`：网易云歌曲 ID、QQ 歌曲 `mid`、酷狗歌曲 `hash` 或汽水歌曲 ID。
 - `targetPlaylistCreated`：目标歌单是否为本次新建。
-- `status`：`downloading`（下载中）、`matching`（站外匹配中）、`imported`（本次新入库）、`existed`（已有曲目）、`failed`（失败，见 `message`）。
+- `status`：`downloading`（下载中）、`matching`（站外匹配中）、`imported`（本次新入库）、`existed`（站内曲库已有该曲目，本次不重新下载，但同样会加入目标歌单）、`failed`（失败，见 `message`）。
+- `playlistAdded`：该曲目这次是否真的加进了目标歌单。`false` 表示它已经在目标歌单里（被跳过），失败曲目同为 `false`；判断「我的歌单里是不是本来就有这首」只看这个字段，不要看 `status`。
 - `progress` 为下载阶段进度，`percent` 为 `-1` 表示上游未返回 `Content-Length`。
 - 曲目入库后用返回的 `musicId`，通过 `GET /api/music/file/{musicId}` 播放或下载。
 
