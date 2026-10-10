@@ -1158,7 +1158,7 @@ Authorization: Bearer <token>
 **字段说明:**
 
 - `items`: 按 id 倒序（新的在前）
-- `type`: 消息类型，目前为 `comment_reply`（有人回复了你的评论）
+- `type`: 消息类型，`comment_reply`（有人回复了你的评论）、`playlist_import`（外部歌单导入结束）
 - `title`: 文案已写明涉及的歌曲，形如「喵喵 回复了你在《歌名》下的评论」
 - `link`: 站内跳转路径（如歌曲详情页），无跳转时为空字符串
 - `read`: 是否已读；已读状态保存在服务端，多端一致
@@ -2686,6 +2686,9 @@ async function downloadVideoClip(jobId, filename = 'clip.mp4') {
 - 必须指定导入目标：已有站内歌单 `targetPlaylistId`，或新建歌单 `targetPlaylistName`（二选一）。
 - **导入后目标歌单的曲目顺序与来源歌单保持一致**：命中的曲目按来源顺序追加到目标歌单末尾
   （导入到已有歌单时排在原有曲目之后）；匹配或下载失败的曲目会被跳过，其余曲目相对顺序不变。
+- **导入结束（成功或失败）后会给发起人写一条站内消息**（`type` 为 `playlist_import`，标题写明
+  目标歌单与本次结果，`link` 指向该歌单）。在线时经 `GET /api/user/notifications/stream` 实时推送，
+  离线时下次打开消息中心补拉即可看到。
 
 ### 认证方式
 
