@@ -2684,6 +2684,8 @@ async function downloadVideoClip(jobId, filename = 'clip.mp4') {
 - 支持音源：网易云音乐、QQ 音乐、酷狗音乐。
 - 无论哪个平台（`qq` / `netease` / `kugou`），导入请求都**必须携带用户令牌**。
 - 必须指定导入目标：已有站内歌单 `targetPlaylistId`，或新建歌单 `targetPlaylistName`（二选一）。
+- **导入后目标歌单的曲目顺序与来源歌单保持一致**：命中的曲目按来源顺序追加到目标歌单末尾
+  （导入到已有歌单时排在原有曲目之后）；匹配或下载失败的曲目会被跳过，其余曲目相对顺序不变。
 
 ### 认证方式
 
