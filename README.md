@@ -641,7 +641,7 @@ Content-Type: multipart/form-data
 
 **说明:**
 - 上传的音乐会进入待审核状态（`status: "pending"`）
-- 管理员审核通过后，音乐会正式添加到音乐库
+- 管理员审核通过后，音乐会正式添加到音乐库；审核结束（通过或未通过）会给上传者写一条站内消息（`type` 为 `upload_approved` / `upload_rejected`，见「站内消息」），同时发送邮件通知
 - 系统会自动检查是否有重复的音乐（相同的标题、歌手、专辑）
 - 如果没有上传歌词文件，系统会自动创建一个空的歌词文件（no_lrc.lrc）
 - 上传的文件会保存在 `user_upload/` 目录下，文件名格式为 `music_<timestamp>.<ext>`
@@ -1158,7 +1158,7 @@ Authorization: Bearer <token>
 **字段说明:**
 
 - `items`: 按 id 倒序（新的在前）
-- `type`: 消息类型，`comment_reply`（有人回复了你的评论）、`playlist_import`（外部歌单导入结束）
+- `type`: 消息类型，`comment_reply`（有人回复了你的评论）、`playlist_import`（外部歌单导入结束）、`upload_approved`（上传的音乐审核通过）、`upload_rejected`（上传的音乐未通过审核）
 - `title`: 文案已写明涉及的歌曲，形如「喵喵 回复了你在《歌名》下的评论」
 - `link`: 站内跳转路径（如歌曲详情页），无跳转时为空字符串
 - `read`: 是否已读；已读状态保存在服务端，多端一致
