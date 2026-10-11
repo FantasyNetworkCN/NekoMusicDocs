@@ -65,7 +65,8 @@ X-Neko-Nonce: <nonce>
 白名单（无需 nonce）：`/api/replay/challenge`、`/api/replay/nonce`、`/api/music/latest`、`/api/music/ranking`、
 封面 `/api/music/cover/*`、头像 `/api/user/avatar/*`、扫码登录 SSE `/api/user/qrlogin/status`、
 站内消息 SSE `/api/user/notifications/stream`、`/loser/*/pull`（SSE）、支付回调 `/api/payment/zpay/notify`、
-`multipart/form-data` 上传、以及 `OPTIONS` / `HEAD`。
+文件上传接口以 `multipart/form-data` 提交时（其余接口即便把 `Content-Type` 写成 `multipart/...`
+也必须携带 nonce）、以及 `OPTIONS` / `HEAD`。
 
 详见 **[请求防重放（专项）](API-请求防重放.md)**。
 

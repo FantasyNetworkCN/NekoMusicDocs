@@ -191,7 +191,7 @@ X-Neko-Nonce: <nonce>
 | `/api/user/notifications/stream` | 站内消息实时推送（SSE，`EventSource` 无法自定义请求头） |
 | `/loser/*/pull` | 歌单导入进度流（SSE） |
 | `/api/payment/zpay/notify` | 支付平台服务器回调，无法附带自定义请求头 |
-| `multipart/form-data` 请求 | 文件上传 |
+| 文件上传接口的 `multipart/form-data` 请求 | 仅限上传接口本身；其它接口把 `Content-Type` 写成 `multipart/...` 也必须携带 nonce |
 | `OPTIONS`、`HEAD` | 预检 / 元信息请求 |
 
 ---
@@ -210,7 +210,7 @@ X-Neko-Nonce: <nonce>
 2. 带 `challenge` / `proof` 调用 `GET /api/replay/nonce`，缓存 `read` / `write` 两个列表；
 3. 发起 `GET` 时从 `read` 取一个，发起写方法时从 `write` 取一个，放进 `X-Neko-Nonce` 头；
 4. 收到 `409` 时重新走第 1–2 步换题领取，再重试一次；
-5. 白名单接口与 `multipart` 上传无需携带。
+5. 白名单接口与文件上传接口无需携带；其余接口一律需要，不能靠修改 `Content-Type` 规避。
 
 ---
 
