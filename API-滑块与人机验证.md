@@ -10,7 +10,7 @@
 
 1. 用户填写邮箱（及可选用户名）后，在界面中打开人机验证（例如弹窗）。
 2. 调用 **`GET /api/captcha/slider`** 拉取当次挑战（背景图、滑块图、`captchaToken` 等）。
-3. 用户拖动滑块对齐缺口后，在**松手**时调用 **`POST /api/captcha/slider/verify`**，提交本次的 `captchaToken` 与拼图水平位移 `captchaOffsetX`（像素，与背景图坐标系一致）。
+3. 用户拖动滑块对齐缺口后，在**松手**时调用 **`POST /api/captcha/slider/verify`**，提交本次的 `captchaToken`、拼图水平位移 `captchaOffsetX`（像素，与背景图坐标系一致）和拖动轨迹 `dragTrace`。
 4. 若校验成功，响应体中的 **`captchaPassToken`** 为短时一次性令牌；紧接着调用 **`POST /api/user/send-verification`**，在 JSON 中带上 **`captchaPassToken`**（及 `email`、`nickname`），服务端校验通过后才发邮件。
 5. 用户收到邮件验证码后，再调用 **`POST /api/user/register`** 完成注册（**注册接口不要求**滑块参数，仅校验邮箱验证码等业务规则）。
 
@@ -85,7 +85,12 @@ Content-Type: application/json
 ```json
 {
   "captchaToken": "string",
-  "captchaOffsetX": 0
+  "captchaOffsetX": 0,
+  "dragTrace": [
+    { "t": 0, "x": 0 },
+    { "t": 120, "x": 18 },
+    { "t": 260, "x": 52 }
+  ]
 }
 ```
 
@@ -93,6 +98,7 @@ Content-Type: application/json
 |------|------|------|------|
 | `captchaToken` | string | 是 | 来自 `GET /api/captcha/slider` 的 `data.captchaToken` |
 | `captchaOffsetX` | number | 是 | 用户对齐后，拼图块左边缘相对背景的 **X** 像素（整数） |
+| `dragTrace` | array | 是 | 本次拖动产生的轨迹采样；每项包含 `t`（从按下开始计算的毫秒数）和 `x`（当时拼图块左边缘的 X 像素） |
 
 **成功响应：**
 

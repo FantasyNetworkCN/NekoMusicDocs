@@ -172,6 +172,8 @@ Content-Type: application/json
 
 **专项文档（推荐）：** [API-滑块与人机验证.md](API-滑块与人机验证.md)（含 `GET /api/captcha/slider`、`POST /api/captcha/slider/verify` 与本接口的完整字段与流程说明）
 
+调用 `POST /api/captcha/slider/verify` 时，客户端除 `captchaToken` 与 `captchaOffsetX` 外，还需提交本次拖动产生的 `dragTrace` 轨迹采样；字段定义见专项文档。
+
 **端点:** `POST /api/user/send-verification`
 
 **请求头:**
