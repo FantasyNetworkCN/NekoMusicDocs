@@ -163,7 +163,7 @@ Content-Type: application/json
 | 未带或空 `captchaPassToken` | false | `message` 如：`请先完成安全验证（滑动拼图）` |
 | `captchaPassToken` 无效、过期或已使用 | false | `message` 如：`安全验证已失效或已使用，请重新滑动验证` |
 | 邮箱格式错误 / 域名不受支持等 | false | 以服务端返回 `message` 为准 |
-| 发送频率限制 | false | 以服务端返回的状态码与 `message` 为准（可能为 `429`，请退避后重试） |
+| 发送频率限制 | false | 同一来源 IP 或同一收件邮箱触发发信限制时返回 HTTP `429`，`Retry-After` 为建议等待秒数，请退避后重试 |
 
 ---
 
