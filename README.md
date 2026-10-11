@@ -960,7 +960,7 @@ Authorization: Bearer <token>
 
 ### 21. 扫码登录
 
-PC 端展示二维码，手机端（NekoMusic App）扫码确认后，PC 端自动登录。二维码 180 秒内有效，且只能被取走一次。
+PC 端展示二维码，手机端（NekoMusic App）扫码确认后，PC 端自动登录。二维码 180 秒内有效，登录令牌只能被领取一次。
 
 **流程:**
 
@@ -968,7 +968,8 @@ PC 端展示二维码，手机端（NekoMusic App）扫码确认后，PC 端自�
 2. PC 端对 `GET /api/user/qrlogin/status` 建立 **SSE 长连接**，等待服务端推状态；
 3. 手机端扫码后带**自己的用户 Token** 调 `POST /api/user/qrlogin/scan`，PC 端收到 `scanned`；
 4. 用户在手机上确认（或拒绝）后调 `POST /api/user/qrlogin/confirm`；
-5. PC 端收到 `confirmed` 帧里的 `token` 与用户信息，完成登录，连接自动关闭。
+5. PC 端收到 `confirmed` 状态帧后，用创建时拿到的 `deliveryKey` 调
+   `POST /api/user/qrlogin/claim` 领取一次性 `token` 与用户信息，完成登录。
 
 **二维码内容格式:**
 
@@ -990,6 +991,7 @@ nekomusic://qrlogin?sid=<sessionId>
   "data": {
     "sessionId": "32位URL安全随机串",
     "qrImage": "data:image/png;base64,...",
+    "deliveryKey": "43位URL安全随机串",
     "expiresIn": 180
   }
 }
@@ -1001,6 +1003,7 @@ nekomusic://qrlogin?sid=<sessionId>
 |------|------|
 | `sessionId` | 会话 ID，用于订阅状态 |
 | `qrImage` | 服务端渲染好的二维码 PNG data URL，正中心已合成软件图标。客户端直接展示该图片即可，无需自行渲染 |
+| `deliveryKey` | 一次性投递密钥，**只在创建响应里返回一次**：客户端保存在内存中，收到 `confirmed` 后回传本值调用 21.3 领取 `token`。不要写进二维码或 URL，也不要落盘、落日志、回显 |
 | `expiresIn` | 二维码有效期（秒），固定 180 |
 
 **说明:** 二维码由服务端渲染，`qrImage` 恒定返回；渲染失败时本接口返回 `500`。
@@ -1027,30 +1030,71 @@ event: status
 data: {"status":"scanned"}
 
 event: status
-data: {"status":"confirmed","token":"登录令牌","user":{"id":1,...}}
+data: {"status":"confirmed"}
 ```
 
 **`data.status` 取值:** `pending`（等待扫码）、`scanned`（已扫码待确认）、`confirmed`（已确认）、`canceled`（已取消）、`expired`（会话不存在/已过期）。
 
-**`confirmed` 帧示例:**
+> **`confirmed` 状态帧不再携带 `token`：** PC 端收到后须调用 `POST /api/user/qrlogin/claim`（见 21.3）
+> 领取登录令牌，领取成功才算完成登录。
+
+**说明:** 状态帧只播状态，`token` 一律通过 21.3 单独领取且只能领到一次。
+`sessionId` 无效时在建流之前返回 JSON `400`。
+
+#### 21.3 领取登录令牌（无需登录）
+
+**端点:** `POST /api/user/qrlogin/claim`
+
+**请求体:**
 ```json
 {
-  "status": "confirmed",
-  "token": "登录令牌",
-  "user": {
-    "id": 1,
-    "nickname": "昵称",
-    "email": "email@example.com",
-    "createdAt": "2024-01-01T00:00:00",
-    "isVip": false,
-    "vipExpiresAt": null
+  "sessionId": "string",
+  "deliveryKey": "string"
+}
+```
+
+**说明:** 仅创建该会话的 PC 端可调用，`deliveryKey` 必须与创建响应（21.1）返回的一致。客户端在收到
+`confirmed` 状态帧（21.2）后调用本接口领取登录令牌；令牌只会被成功领取一次，领取成功后会话立即失效。
+
+**响应示例（领取成功）:**
+```json
+{
+  "success": true,
+  "message": "ok",
+  "data": {
+    "status": "confirmed",
+    "token": "登录令牌",
+    "user": {
+      "id": 1,
+      "nickname": "昵称",
+      "email": "email@example.com",
+      "createdAt": "2024-01-01T00:00:00",
+      "isVip": false,
+      "vipExpiresAt": null
+    }
   }
 }
 ```
 
-**说明:** 只有 `confirmed` 帧包含 `token`；该帧推送后会话立即销毁。同一会话即使被多个连接（含并发）同时订阅，**也只有其中一个**能收到 `token` 帧，其余一律得到 `expired`——客户端只需保持一条连接。`sessionId` 无效时在建流之前返回 JSON `400`。
+**响应示例（未领到令牌）:**
+```json
+{
+  "success": true,
+  "message": "ok",
+  "data": { "status": "expired" }
+}
+```
 
-#### 21.3 标记已扫码（需登录）
+**`data.status` 取值:** `confirmed`（领取成功，带 `token` 与 `user`）、`expired`（会话不存在、已过期、
+已被领取，或 `deliveryKey` 不匹配）、`pending` / `scanned`（手机尚未确认，客户端可继续等待状态流）。
+
+**状态码:** `200` 请求已处理（是否领到令牌看 `data.status`）；`400` 请求体缺 `sessionId` / `deliveryKey`
+或格式错误；`500` 服务端暂时不可用。
+
+> **破坏性变更（21.3）:** 登录 `token` 不再由 21.2 的状态帧下发，改由本接口领取。客户端需保存 21.1
+> 返回的 `deliveryKey`，并在收到 `confirmed` 后新增一次本调用。
+
+#### 21.4 标记已扫码（需登录）
 
 **端点:** `POST /api/user/qrlogin/scan`
 
@@ -1074,7 +1118,7 @@ data: {"status":"confirmed","token":"登录令牌","user":{"id":1,...}}
 
 **错误:** 会话不存在或已过期返回 `410`；二维码已被其他账号扫描返回 `409`。
 
-#### 21.4 确认或拒绝登录（需登录）
+#### 21.5 确认或拒绝登录（需登录）
 
 **端点:** `POST /api/user/qrlogin/confirm`
 
