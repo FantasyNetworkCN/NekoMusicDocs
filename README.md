@@ -2231,8 +2231,10 @@ curl -sS -X POST 'https://music.nekocore.cn/api/music/recognize' \
 
 **无需登录**
 
-**查询参数:**
-- `limit`: 返回数量（可选，默认为 200，最大为 200）
+**查询参数:** 无（返回条数固定，不接受任何查询参数）
+
+> **变更说明:** 原 `limit` 查询参数已移除。旧的 `?limit=...` 调用不会报错，但返回条数固定为
+> 200，调用方无需改动。
 
 **响应示例:**
 ```json
@@ -2259,7 +2261,7 @@ curl -sS -X POST 'https://music.nekocore.cn/api/music/recognize' \
 - 此 API **无需登录**即可访问
 - 返回按播放次数从高到低排序的音乐列表
 - 只返回播放次数大于 0 的音乐
-- 默认返回前 200 首，最多支持返回 200 首
+- 固定返回前 200 首；不接受 `limit` 等查询参数，传入也不会改变结果
 - 每首音乐包含：
   - id, title, artist, album, duration
   - language: 语言
@@ -2274,8 +2276,8 @@ curl -sS -X POST 'https://music.nekocore.cn/api/music/recognize' \
 
 **前端集成示例:**
 ```javascript
-async function getMusicRanking(limit = 200) {
-  const response = await fetch(`https://music.nekocore.cn/api/music/ranking?limit=${limit}`, {
+async function getMusicRanking() {
+  const response = await fetch('https://music.nekocore.cn/api/music/ranking', {
     method: 'GET'
   });
 
@@ -2296,8 +2298,10 @@ async function getMusicRanking(limit = 200) {
 
 **无需登录**
 
-**查询参数:**
-- `limit`: 返回数量（可选，默认为 300，最大为 500）
+**查询参数:** 无（返回条数固定，不接受任何查询参数）
+
+> **变更说明:** 原 `limit` 查询参数已移除。旧的 `?limit=...` 调用不会报错，但返回条数固定为
+> 300，调用方无需改动。
 
 **响应示例:**
 ```json
@@ -2324,7 +2328,7 @@ async function getMusicRanking(limit = 200) {
 **说明:**
 - 此 API **无需登录**即可访问
 - 返回按上传时间从新到旧排序的音乐列表
-- 默认返回最新 300 首音乐，最多支持返回 500 首
+- 固定返回最新 300 首音乐；不接受 `limit` 等查询参数，传入也不会改变结果
 - 每首音乐包含：
   - id, title, artist, album, duration
   - language: 语言
@@ -2340,8 +2344,8 @@ async function getMusicRanking(limit = 200) {
 
 **前端集成示例:**
 ```javascript
-async function getLatestMusic(limit = 300) {
-  const response = await fetch(`https://music.nekocore.cn/api/music/latest?limit=${limit}`, {
+async function getLatestMusic() {
+  const response = await fetch('https://music.nekocore.cn/api/music/latest', {
     method: 'GET'
   });
 
