@@ -1257,6 +1257,34 @@ Content-Type: application/json
 
 ---
 
+### 23. 用户登出
+
+**端点:** `POST /api/user/logout`
+
+**请求头:**
+```
+Authorization: Bearer <token>
+```
+
+无请求体。调用后该 Token 立即失效，客户端应同时清除本地保存的 Token 与用户资料。
+
+接口是幂等的：Token 已失效、或同一 Token 重复调用，都返回成功。客户端可以先调用本接口再清本地状态；
+即使请求失败也应继续完成本地登出，不要因为登出请求失败而把用户留在已登录界面。
+
+**响应示例（成功）:**
+```json
+{ "success": true, "message": "已退出登录" }
+```
+
+**响应示例（未携带 Token）:**
+```json
+{ "success": false, "message": "请先登录" }
+```
+
+**状态码:** `200` 成功（含幂等重复调用）；`401` 未携带 Token。
+
+---
+
 ## 歌单相关 API
 
 - [搜索歌单](#1-搜索歌单)
