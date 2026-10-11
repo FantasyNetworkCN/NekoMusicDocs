@@ -118,6 +118,8 @@ Content-Type: application/json
 
 其他常见 `message`：`缺少 captchaToken 喵`、`缺少 captchaOffsetX 喵`、`请求体不能为空喵`、`服务器内部错误喵`。
 
+> `GET /api/captcha/slider` 与 `POST /api/captcha/slider/verify` 本身也按来源限流：同一来源请求过快时返回 HTTP `429`（`Retry-After` 为建议等待秒数），客户端应按该值退避后重新走一次「取题 → 校验」流程。
+
 ---
 
 ## 3. 发送注册用邮箱验证码（消费 `captchaPassToken`）
@@ -183,4 +185,4 @@ Content-Type: application/json
 
 ## 6. 与「重置密码验证码」的区别
 
-**`POST /api/user/send-reset-code`** 用于忘记密码场景，**不要求** `captchaPassToken`（与注册发信接口不同）。实现以服务端代码为准。
+**`POST /api/user/send-reset-code`** 用于忘记密码场景，**不要求** `captchaPassToken`（与注册发信接口不同），但同样按来源限流：请求过快或邮箱冷却中都会返回 HTTP `429`，`Retry-After` 为建议等待秒数。实现以服务端代码为准。
