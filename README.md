@@ -2638,6 +2638,17 @@ Authorization: <token>
 - `remainingToday` 仅非 VIP 返回，表示今日剩余免费次数。
 - 客户端提交后无需轮询占满界面；用户可通过邮件获取下载链接。
 
+**错误响应示例（字段类型不符）:** HTTP **400**
+```json
+{
+  "success": false,
+  "message": "musicId 必须为数字"
+}
+```
+
+- `musicId` / `startSec` 必须是 JSON 数字（`number`），不要传字符串；类型不符、取值为负、超过歌曲时长都返回 `400`，
+  字段类型问题不会返回 `5xx`。
+
 ### 2. 查询任务状态
 
 **端点:** `GET /api/video/render/{jobId}`
@@ -3030,6 +3041,10 @@ importPlaylist(neteaseUrl);
   "message": "错误描述"
 }
 ```
+
+- `400` 会指出具体哪个字段不合法（如「musicId 必须为数字」），客户端可直接展示。
+- `500` 一律返回上面的通用结构，`message` 固定为「服务器内部错误」，**不含**异常类名、堆栈、服务端路径或请求原文；
+  这些细节只写服务端日志。
 
 ---
 
