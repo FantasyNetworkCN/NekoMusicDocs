@@ -82,9 +82,16 @@ X-Neko-Nonce: <nonce>
 Accept-Language: zh-CN,zh;q=0.9
 ```
 
-- 当前支持 `zh-CN`（默认）与 `en`；未提供或无法识别时一律按 `zh-CN` 返回。
+当前支持：`zh-CN`（简体中文，默认）、`zh-TW`（繁體中文）、`en`（English）、`ja`（日本語）、
+`ko`（한국어）。
+
+- 请求头里只有地区/脚本变体时按变体匹配：`zh-Hant*`、`zh-TW`、`zh-HK`、`zh-MO` → `zh-TW`；
+  `zh-Hans*`、`zh-SG` 等 → `zh-CN`；`en-*`、`ja-*`、`ko-*` → 对应语言。
+- 未提供、无法识别或不在支持列表内（如 `fr-FR`）时一律按 `zh-CN` 返回；`q=0` 的语言不参与选择。
 - 仅 `message` 跟随语言变化：`success`、`data`、字段名、状态码与整体结构在所有语言下完全一致，
   客户端无需按语言分支解析。
+- 例外：公开共享缓存接口 `GET /api/music/latest`、`GET /api/music/ranking` 的 `message` 固定为
+  简体中文（这两条响应声明为 `public` 缓存，不按语言拆分缓存副本）。客户端不应依赖这两句文案。
 - 错误分支请依据 HTTP 状态码与 `success` 判断，不要匹配 `message` 文案。
 
 ---
