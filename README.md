@@ -2,7 +2,7 @@
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko歌姬计划 署名及源码链接！
 
-#### 更新时间 2026年10月9日
+#### 更新时间 2026年10月18日
 ## 概述
 
 Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -2189,21 +2189,38 @@ Content-Type: application/json
 **路径参数:**
 - `id`: 音乐 ID
 
-**响应示例:**
+**响应示例（成功）:**
 ```json
 {
   "success": true,
+  "message": "获取音乐详情成功",
   "data": {
     "id": 1,
     "title": "歌曲标题",
     "artist": "艺术家",
     "album": "专辑",
     "duration": 180,
+    "language": "华语",
+    "tags": "流行",
+    "uploadUserId": 0,
+    "createdAt": "2024-01-01 12:00:00.0",
+    "updatedAt": "2024-01-02 12:00:00.0",
     "maxQuality": "sq",
-    "coverUrl": "/api/music/cover/1",
-    "fileUrl": "/api/music/file/1",
-    "lyrics": "歌词内容"
+    "favoriteCount": 12
   }
+}
+```
+
+**字段说明:**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `favoriteCount` | number | 收藏该曲目的用户数，无人收藏时为 `0` |
+
+**响应示例（失败/不存在）:**
+```json
+{
+  "error": "音乐不存在"
 }
 ```
 
