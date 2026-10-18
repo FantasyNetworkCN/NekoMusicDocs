@@ -2206,7 +2206,8 @@ Content-Type: application/json
     "createdAt": "2024-01-01 12:00:00.0",
     "updatedAt": "2024-01-02 12:00:00.0",
     "maxQuality": "sq",
-    "favoriteCount": 12
+    "favoriteCount": 12,
+    "lyrics": "[00:00.00]歌词内容"
   }
 }
 ```
@@ -2216,6 +2217,7 @@ Content-Type: application/json
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `favoriteCount` | number | 收藏该曲目的用户数，无人收藏时为 `0` |
+| `lyrics` | string | LRC 格式歌词；没有歌词时为空字符串 |
 
 **响应示例（失败/不存在）:**
 ```json
@@ -2376,25 +2378,6 @@ curl -sS -X POST 'https://music.nekocore.cn/api/music/recognize' \
 | `415` | 请求不是 `multipart/form-data` |
 | `429` | 当前 IP 请求过于频繁，或识曲并发已满；可查看 `Retry-After` |
 | `503` | 声纹索引正在构建或识曲服务暂时不可用 |
-
-### 6. 获取歌词
-
-**端点:** `GET /api/music/lyrics/{id}`
-
-**路径参数:**
-- `id`: 音乐 ID
-
-**响应示例:**
-```json
-{
-  "success": true,
-  "message": "获取歌词成功",
-  "data": "歌词内容"
-}
-```
-
-**说明:**
-- 此 API **无需登录**即可访问
 
 ### 6. 获取播放次数排行榜
 
