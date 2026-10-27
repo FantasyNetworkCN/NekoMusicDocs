@@ -192,6 +192,7 @@ X-Neko-Nonce: <nonce>
 | 路径 / 类型 | 说明 |
 |-------------|------|
 | `/api/replay/challenge`、`/api/replay/nonce` | nonce 领取接口本身（换题 / 兑换） |
+| `/api/client/challenge`、`/api/client/register`、`/api/client/token` | 客户端实例身份自举；没有实例令牌时也必须能访问 |
 | `/api/music/latest`、`/api/music/ranking` | 公开数据，重复获取无副作用 |
 | `/api/music/cover/*` | 封面图片，由浏览器原生图片请求加载，无法附带请求头 |
 | `/api/user/avatar/*` | 用户头像，同上 |

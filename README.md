@@ -2,7 +2,7 @@
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko歌姬计划 署名及源码链接！
 
-#### 更新时间 2026年10月18日
+#### 更新时间 2026年10月27日
 ## 概述
 
 Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -18,6 +18,7 @@ Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用�
 - [用户相关 API](#用户相关-api)
 - [滑块人机验证与注册邮箱验证码（专项）](API-滑块与人机验证.md)
 - [防爬与客户端识别（专项）](API-防爬与客户端识别.md)
+- [客户端身份与 Client ID 接入（专项）](API-客户端身份与Client-ID.md)
 - [请求防重放（专项）](API-请求防重放.md)
 - [歌单相关 API](#歌单相关-api)
 - [歌手相关 API](#歌手相关-api)
@@ -45,6 +46,16 @@ Token 在用户登录时生成并返回给客户端。
 
 **Token 有效期:** 30 天
 
+### 客户端身份（Client ID）
+
+除公开接口与自举接口外，**所有动态接口**（`/api/*`、`/loser/*`）还需要携带 Client ID、实例 ID、
+实例短期令牌和每请求签名；仅带 `X-Neko-Client` 不足以通过校验。官方客户端已预置身份，第三方客户端
+必须先联系管理员申请 Client ID，再完成实例注册与令牌续签。
+
+Client ID 是公开的应用标识，不是访问凭据；每个安装实例都必须使用自己的 EC P-256 私钥签名。完整的
+申请材料、注册流程、续签方式和请求签名串见
+**[客户端身份与 Client ID 接入（专项）](API-客户端身份与Client-ID.md)**。
+
 ### 防重放 nonce（所有动态接口）
 
 除白名单外，**所有动态接口**（`/api/*`、`/loser/*`）都必须携带一次性请求头 `X-Neko-Nonce`，
@@ -65,6 +76,7 @@ X-Neko-Nonce: <nonce>
 - 静态资源（`/media/*`、`/assets/*`、安装包）不校验，其缓存行为不变。
 
 白名单（无需 nonce）：`/api/replay/challenge`、`/api/replay/nonce`、`/api/music/latest`、`/api/music/ranking`、
+客户端身份自举 `/api/client/challenge`、`/api/client/register`、`/api/client/token`、
 封面 `/api/music/cover/*`、头像 `/api/user/avatar/*`、扫码登录 SSE `/api/user/qrlogin/status`、
 站内消息 SSE `/api/user/notifications/stream`、`/loser/*/pull`（SSE）、支付回调 `/api/payment/zpay/notify`、
 文件上传接口以 `multipart/form-data` 提交时（其余接口即便把 `Content-Type` 写成 `multipart/...`
