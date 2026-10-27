@@ -679,6 +679,7 @@ Content-Type: multipart/form-data
   - 支持格式：jpg, jpeg, png, gif, webp, bmp
 - `lyricsFile`: 歌词文件（可选，multipart/form-data）
   - 支持格式：lrc
+  - 相邻两行时间戳相同且文本不同，按「原文 + 翻译」处理：首行保留，第二行保存为 `{"翻译内容"}`；空白译文保存为 `{" "}`
   - 如果不提供歌词文件，系统会自动使用默认的空歌词文件
 
 **响应示例（成功）:**
