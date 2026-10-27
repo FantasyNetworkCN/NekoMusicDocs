@@ -19,7 +19,7 @@
 ### 1.2 第三方客户端
 
 第三方客户端目前通过人工审核接入，**没有公开的自助申请 API**。请发送邮件至
-`support@nekocore.cn`，主题注明「NekoMusic Client ID 申请」，并提供：
+`support@nekocore.cn`，主题注明「NekoMusic Client ID 申请」。或者前往官方qq群，并提供：
 
 | 信息 | 说明 |
 |------|------|
