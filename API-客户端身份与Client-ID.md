@@ -151,7 +151,7 @@ X-Neko-Client-Secret: <client_secret>
 | `timestamp` | number | 是 | 当前 Unix 秒 |
 | `signature` | string | 是 | 注册签名串的 SHA256withECDSA DER 签名，base64url |
 | `origin` | string | 否 | Web 客户端应填写实际 Origin；与请求头 `Origin` 同时存在时必须一致 |
-| `attestation.chain` | string[] | 条件必填 | 仅当该 Client ID 被要求提供平台证明时填写 |
+| `attestation.chain` | string[] | 条件必填 | 该 Client ID 要求平台证明时填写；设备无法提供可信硬件证明时，服务端会记录降级等级并继续注册 |
 
 **请求体示例:**
 
@@ -190,7 +190,7 @@ neko-client-register-v1
     "instance_id": "550e8400-e29b-41d4-a716-446655440000",
     "token": "<实例短期令牌>",
     "expires_at": 1790604800,
-    "attestation": "none",
+    "attestation": "tee",
     "protocol": "neko-client-v1"
   }
 }
@@ -199,6 +199,9 @@ neko-client-register-v1
 - `token` 只用于客户端身份校验，不是用户登录 Token；需要用户数据的接口仍要另带 `Authorization`。
 - `expires_at` 为 Unix 秒。到期前应使用续签接口换新令牌，不要重新注册同一实例。
 - 同一 `instance_id` 重复注册只有在 Client ID、平台和公钥均一致时才可能成功。
+- `attestation` 表示本次实例的可信等级：`strongbox`、`tee`、`tee_unverified`、`software` 或 `none`。
+  `tee_unverified` 表示硬件证书链存在但启动状态未通过校验；`software` 表示未获得可信硬件证明。
+  这两个降级值不会阻止注册，客户端不应把它们当作注册失败；需要用户登录的接口仍按原规则鉴权。
 
 **状态码:**
 
