@@ -111,6 +111,10 @@ Accept-Language: zh-CN,zh;q=0.9
 
 ## 用户相关 API
 
+> **账号权威源：** 本节的注册、登录、邮箱验证码、找回密码与改密请求格式保持不变，但校验和账号存储由 NekoMusic 后端转发给 NekoAuth 完成。NekoMusic 本地不再保存用户密码，只保存 NekoAuth `sub` 对应的 `auth_user_id`、邮箱快照、昵称、头像和 VIP。客户端无需改成 OAuth 流程，也不需要获取 NekoAuth 的 client secret。
+>
+> NekoAuth 客户端必须由部署者自行登记为机密客户端，并包含 `account:bridge` scope；NekoMusic 在认证设置中填写 `oauth.issuer`、`oauth.client_id`、`oauth.client_secret`。若同一客户端还要走浏览器 OAuth，再按需加入 `openid email roles`。NekoMusic 的昵称不写入 NekoAuth，首次登录/注册后按 NekoAuth 用户 ID 自动关联本地资料。
+
 ### 1. 用户注册
 
 **端点:** `POST /api/user/register`
