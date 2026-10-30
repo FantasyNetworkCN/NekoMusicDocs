@@ -16,6 +16,7 @@ Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用�
 - [认证说明](#认证说明)
 - [响应文案语言](#响应文案语言)
 - [用户相关 API](#用户相关-api)
+- [NekoAuth 统一登录（服务端）](#24-nekoauth-统一登录服务端)
 - [滑块人机验证与注册邮箱验证码（专项）](API-滑块与人机验证.md)
 - [防爬与客户端识别（专项）](API-防爬与客户端识别.md)
 - [客户端身份与 Client ID 接入（专项）](API-客户端身份与Client-ID.md)
@@ -1396,6 +1397,91 @@ Authorization: Bearer <token>
 ```
 
 **状态码:** `200` 成功（含幂等重复调用）；`401` 未携带 Token。
+
+---
+
+### 24. NekoAuth 统一登录（服务端）
+
+本节是由 NekoMusic 服务端发起的 OAuth 2.0 授权码流程（机密客户端）。它只新增服务端端点，
+**不修改任何现有客户端、现有客户端 ID 或原有 `/api/*` 契约**；原邮箱密码登录与扫码登录继续可用。
+
+**昵称边界：** NekoAuth 只用于身份认证。登录过程只读取 NekoAuth UserInfo 的 `sub` 与 `email`，
+不读取 `name` / `preferred_username`，也**不会写入、覆盖或同步 NekoMusic 昵称**。NekoMusic 昵称
+仍由 NekoMusic 自己的注册与昵称接口管理。
+
+#### 24.1 发起登录
+
+**端点:** `GET /oauth/nekocore/start`
+
+**请求头:** 无需登录。浏览器直接导航即可。
+
+**查询参数:**
+
+| 参数 | 必填 | 说明 |
+| --- | --- | --- |
+| `return_to` | 否 | 登录成功后的站内相对路径，必须以单个 `/` 开头；默认 `/`。服务端会把它写入一次性 state，回调时不再接受外部传入的跳转地址。 |
+
+**响应:** `302` 跳转到 NekoAuth 授权端点。NekoAuth 根地址、客户端 ID、回调地址与 scope 由管理员在
+「系统设置 → NekoAuth 登录」中维护，不写死在客户端。
+
+**状态码:**
+
+- `302`: 跳转到 NekoAuth
+- `400`: `return_to` 不是合法站内相对路径
+- `503`: NekoAuth 登录未启用或配置不完整
+
+#### 24.2 授权回调
+
+**端点:** `GET /oauth/nekocore/callback`
+
+**请求头:** 无需登录。该地址必须与 NekoAuth 应用中登记的回调地址完全一致。
+
+**查询参数:**
+
+| 参数 | 必填 | 说明 |
+| --- | --- | --- |
+| `code` | 是 | NekoAuth 返回的一次性授权码 |
+| `state` | 是 | 发起登录时生成的一次性 state，只能消费一次，10 分钟内有效 |
+
+服务端使用 HTTP Basic 向 NekoAuth 交换访问令牌，再读取 UserInfo。NekoAuth 的 `sub` 对应本地用户 ID；
+本地用户必须已存在，且 UserInfo 中的 `email` 与本地账户一致，才会签发原 NekoMusic Token。
+不会因为 NekoAuth 显示名称不同而修改本地昵称，也不会自动用 NekoAuth 资料创建新昵称。
+
+**响应示例（成功）:**
+
+```json
+{
+  "success": true,
+  "message": "登录成功",
+  "data": {
+    "token": "<NekoMusic Token>",
+    "return_to": "/favorites"
+  }
+}
+```
+
+客户端拿到 `token` 后，按原有方式在后续请求中携带 `Authorization: <token>`。令牌有效期、续期、
+登出与所有业务 API 的行为保持不变。
+
+**响应示例（账户未关联）:**
+
+```json
+{
+  "success": false,
+  "error": "account_not_linked",
+  "message": "该 NekoAuth 账户尚未关联 NekoMusic 账户"
+}
+```
+
+**状态码:**
+
+- `200`: 成功签发 NekoMusic Token
+- `400`: 缺少授权码、state 无效或已过期
+- `403`: 用户取消授权、账户未关联、邮箱不一致或邮箱未验证
+- `502`: NekoAuth 令牌交换或 UserInfo 获取失败
+- `503`: NekoAuth 登录未启用、配置不完整或暂时不可用
+
+两个端点均返回 `Cache-Control: private, no-store`，回调响应体中的 Token 不会写入 URL。
 
 ---
 
