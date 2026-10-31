@@ -43,9 +43,9 @@ Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用�
 Authorization: <token>
 ```
 
-Token 在用户登录时生成并返回给客户端。
+Token 由 NekoAuth 在登录或注册成功后签发并返回给客户端，NekoMusic 只保存本地业务资料，不再保存用户 Token。
 
-**Token 有效期:** 30 天
+**Token 有效期:** 第一方登录默认 365 天；修改密码、管理员重置密码、账号停用、主动登出或 NekoAuth 吊销后立即失效。
 
 ### 客户端身份（Client ID）
 
@@ -111,7 +111,9 @@ Accept-Language: zh-CN,zh;q=0.9
 
 ## 用户相关 API
 
-> **账号权威源：** 本节的注册、登录、邮箱验证码、找回密码与改密请求格式保持不变，但校验和账号存储由 NekoMusic 后端转发给 NekoAuth 完成。NekoMusic 本地不再保存用户密码，只保存 NekoAuth `sub` 对应的 `auth_user_id`、邮箱快照、昵称、头像和 VIP。客户端无需改成 OAuth 流程，也不需要获取 NekoAuth 的 client secret。
+> **账号与 Token 权威源：** 本节的注册、登录、邮箱验证码、找回密码与改密的请求路径和字段保持不变，但校验、账号存储、用户 Token 签发、校验与吊销均由 NekoMusic 后端转发给 NekoAuth 完成。NekoMusic 本地不再保存用户密码或用户 Token，只保存 NekoAuth `sub` 对应的 `auth_user_id`、邮箱快照、昵称、头像和 VIP。旧客户端无需改成 OAuth 流程，也不需要获取 NekoAuth 的 client secret；登录响应中的 `token` 字段已改为 NekoAuth access token。
+>
+> 本次切换后，NekoMusic 旧版自行生成的随机 token 不再被接受，客户端需要重新登录一次。浏览器账号入口改为 NekoAuth OAuth 单点登录，详见 [NekoAuth 统一登录（服务端）](#24-nekoauth-统一登录服务端)。
 >
 > NekoAuth 客户端必须由部署者自行登记为机密客户端，并包含 `account:bridge` scope；NekoMusic 在认证设置中填写 `oauth.issuer`、`oauth.client_id`、`oauth.client_secret`。若同一客户端还要走浏览器 OAuth，再按需加入 `openid email roles`。NekoMusic 的昵称不写入 NekoAuth，首次登录/注册后按 NekoAuth 用户 ID 自动关联本地资料。
 
@@ -140,13 +142,7 @@ Content-Type: application/json
   "success": true,
   "message": "注册成功",
   "data": {
-    "user": {
-      "id": 1,
-      "nickname": "昵称",
-      "email": "email@example.com",
-      "createdAt": "2024-01-01T00:00:00"
-    },
-    "token": "64位十六进制字符串"
+    "nickname": "昵称"
   }
 }
 ```
@@ -188,7 +184,7 @@ Content-Type: application/json
       "isVip": false,
       "vipExpiresAt": null
     },
-    "token": "64位十六进制字符串"
+    "token": "<NekoAuth access token>"
   }
 }
 ```
@@ -1406,8 +1402,8 @@ Authorization: Bearer <token>
 
 ### 24. NekoAuth 统一登录（服务端）
 
-本节是由 NekoMusic 服务端发起的 OAuth 2.0 授权码流程（机密客户端）。它只新增服务端端点，
-**不修改任何现有客户端、现有客户端 ID 或原有 `/api/*` 契约**；原邮箱密码登录与扫码登录继续可用。
+本节是由 NekoMusic 服务端发起的 OAuth 2.0 授权码流程（机密客户端）。它不修改旧客户端使用的
+`/api/user/*` 路径与字段；登录响应里的 `token` 已是 NekoAuth 签发的 access token，原邮箱密码登录与扫码登录继续可用。浏览器端使用本节端点完成统一登录、注册和找回密码。
 
 **昵称边界：** NekoAuth 只用于身份认证。登录过程只读取 NekoAuth UserInfo 的 `sub` 与 `email`，
 不读取 `name` / `preferred_username`，也**不会写入、覆盖或同步 NekoMusic 昵称**。NekoMusic 昵称
@@ -1447,9 +1443,50 @@ Authorization: Bearer <token>
 | `code` | 是 | NekoAuth 返回的一次性授权码 |
 | `state` | 是 | 发起登录时生成的一次性 state，只能消费一次，10 分钟内有效 |
 
-服务端使用 HTTP Basic 向 NekoAuth 交换访问令牌，再读取 UserInfo。NekoAuth 的 `sub` 对应本地用户 ID；
-本地用户必须已存在，且 UserInfo 中的 `email` 与本地账户一致，才会签发原 NekoMusic Token。
-不会因为 NekoAuth 显示名称不同而修改本地昵称，也不会自动用 NekoAuth 资料创建新昵称。
+服务端使用 HTTP Basic 向 NekoAuth 交换短期 access token，读取 UserInfo 的 `sub`、`email` 与
+`email_verified`，按 `sub` 查找或创建本地业务资料，再把短期 token 换成 NekoAuth 长期第一方 token。
+回调成功时不会在响应体或 URL 中返回用户 token，而是跳转到前端完成页并携带一次性 handoff。
+
+**响应（成功）:** `302` 跳转到 `/oauth/nekocore/complete?handoff=<一次性交接>`。
+
+**响应示例（失败）:**
+
+```json
+{
+  "success": false,
+  "error": "state_invalid",
+  "message": "登录会话无效或已过期"
+}
+```
+
+**状态码:**
+
+- `302`: 授权成功，跳转到前端完成页
+- `400`: 缺少授权码、state 无效或已过期
+- `403`: 用户取消授权、邮箱未验证或账号关联失败
+- `502`: NekoAuth 令牌交换、UserInfo 获取或长期 token 交换失败
+- `503`: NekoAuth 登录未启用、配置不完整或暂时不可用
+
+#### 24.3 完成单点登录并领取 Token
+
+**页面:** `GET /oauth/nekocore/complete`
+
+前端收到回调后打开该页面。页面会立即读取并清除 URL 中的 `handoff`，然后调用下面的领取接口；
+成功后把 token 写入 `localStorage.userToken`，并按 `returnTo` 返回登录前页面。
+
+**端点:** `POST /api/user/sso/claim`
+
+**请求头:**
+
+```
+Content-Type: application/json
+```
+
+**请求体:**
+
+```json
+{ "handoff": "string" }
+```
 
 **响应示例（成功）:**
 
@@ -1458,34 +1495,48 @@ Authorization: Bearer <token>
   "success": true,
   "message": "登录成功",
   "data": {
-    "token": "<NekoMusic Token>",
-    "return_to": "/favorites"
+    "token": "<NekoAuth access token>",
+    "returnTo": "/favorites",
+    "user": {
+      "id": 1,
+      "nickname": "昵称",
+      "email": "email@example.com",
+      "createdAt": "2024-01-01T00:00:00",
+      "isVip": false,
+      "vipExpiresAt": null
+    }
   }
 }
 ```
 
-客户端拿到 `token` 后，按原有方式在后续请求中携带 `Authorization: <token>`。令牌有效期、续期、
-登出与所有业务 API 的行为保持不变。
+**说明:**
 
-**响应示例（账户未关联）:**
-
-```json
-{
-  "success": false,
-  "error": "account_not_linked",
-  "message": "该 NekoAuth 账户尚未关联 NekoMusic 账户"
-}
-```
+- handoff 120 秒内有效，且只能成功领取一次；刷新完成页或重复提交会返回 `410`。
+- 领取到的 token 与旧 `/api/user/login` 返回的 `token` 语义相同，后续继续放在
+  `Authorization: Bearer <token>` 或旧接口约定的裸 token 位置。
+- 响应使用 `Cache-Control: private, no-store`，token 不会写回 URL。
+- 该动态接口遵循全站防重放约定，需要 `X-Neko-Nonce`；官方 Web 前端会自动补上。
 
 **状态码:**
 
-- `200`: 成功签发 NekoMusic Token
-- `400`: 缺少授权码、state 无效或已过期
-- `403`: 用户取消授权、账户未关联、邮箱不一致或邮箱未验证
-- `502`: NekoAuth 令牌交换或 UserInfo 获取失败
-- `503`: NekoAuth 登录未启用、配置不完整或暂时不可用
+- `200`: 领取成功
+- `400`: 请求体格式不正确
+- `409`: 缺少、过期或重复使用的防重放 nonce
+- `410`: handoff 不存在、已过期、已领取，或对应账号资料已不可用
+- `429`: 登录尝试过于频繁；按 `Retry-After` 退避
+- `502`: NekoAuth 暂时不可用
+- `503`: NekoAuth 登录或账号桥接未配置
 
-两个端点均返回 `Cache-Control: private, no-store`，回调响应体中的 Token 不会写入 URL。
+#### 24.4 找回密码入口
+
+**端点:** `GET /oauth/nekocore/forgot-password`
+
+**请求头:** 无需登录。浏览器直接导航即可。
+
+**响应:** `302` 跳转到 NekoAuth 的 `/forgot-password`。找回密码的人机验证码、邮箱验证码、发送冷却、
+每日上限、新密码校验与旧 token 失效全部由 NekoAuth 处理。
+
+**状态码:** `302` 跳转成功；`503` NekoAuth 根地址未配置或暂时不可用。
 
 ---
 
@@ -3799,7 +3850,7 @@ async function getFavoritePlaylistMusic(playlistId) {
 ## 注意事项
 
 1. **CORS:** 所有 API 都支持跨域请求
-2. **Token 管理:** Token 有效期为 30 天，过期后需要重新登录
+2. **Token 管理:** 用户 Token 由 NekoAuth 签发，第一方登录默认有效期为 365 天；修改密码、管理员重置密码、账号停用、主动登出或 NekoAuth 吊销后立即失效。客户端应把 401 / `Token 失效` 视为需要重新登录，而不是尝试复用旧 token。
 3. **错误处理:** 所有 API 都返回统一的 JSON 格式，包含 `success` 和 `message` 字段
 4. **速率限制:** 建议客户端实现适当的请求速率限制，避免频繁请求
 5. **头像上传:**
@@ -3843,8 +3894,8 @@ async function getFavoritePlaylistMusic(playlistId) {
    - `GET /api/vip/pricing` 公开读取价目表（无需登录）。
    - `POST /api/vip/pay/create` 需要登录，用于根据 `pricingId` 发起 VIP 购买并返回收银台地址或二维码。
 9. **忘记密码:**
-   - `POST /api/user/send-reset-code` 向邮箱发送验证码。
-   - `POST /api/user/reset-password` 验证码通过后重置密码。
+   - 旧客户端仍可使用 `POST /api/user/send-reset-code` 与 `POST /api/user/reset-password`，后端会代理到 NekoAuth。
+   - 浏览器入口使用 `GET /oauth/nekocore/forgot-password`，由 NekoAuth 完成人机验证、邮箱验证码、新密码设置与 token 失效。
 
 10. **分享视频渲染:**
    - 创建任务与查询状态需要登录；下载成片 **无需登录**。
