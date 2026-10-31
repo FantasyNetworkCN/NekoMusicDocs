@@ -1411,9 +1411,21 @@ Authorization: Bearer <token>
 
 #### 24.1 发起登录
 
-**端点:** `GET /sso/nekocore/start`
+**端点:** `POST /api/user/sso/start`
 
-`/oauth/*` 是 NekoAuth 的保留命名空间，生产反向代理会优先将它转给账号中心。NekoMusic 自有浏览器入口统一放在 `/sso/*`；旧 `/oauth/nekocore/start` 仅保留兼容别名，新前端不再使用。
+**请求体:**
+
+```json
+{ "returnTo": "/favorites" }
+```
+
+**响应:**
+
+```json
+{ "success": true, "data": { "url": "https://auth.nekocore.cn/oauth2/authorize?..." } }
+```
+
+前端拿到 `url` 后直接导航到 NekoAuth。授权地址和一次性 state 由 NekoMusic 后端生成，不经过容易被生产反向代理占用的 `/oauth/*` 或 `/sso/*` 浏览器入口。
 
 **请求头:** 无需登录。浏览器直接导航即可。
 
@@ -1531,14 +1543,14 @@ Content-Type: application/json
 
 #### 24.4 找回密码入口
 
-**端点:** `GET /sso/nekocore/forgot-password`
+**端点:** `POST /api/user/sso/password-reset-url`
 
 **请求头:** 无需登录。浏览器直接导航即可。
 
-**响应:** `302` 跳转到 NekoAuth 的 `/forgot-password`。找回密码的人机验证码、邮箱验证码、发送冷却、
+**响应:** `200`，`data.url` 为 NekoAuth 的 `/forgot-password` 完整地址。前端随后直接导航。找回密码的人机验证码、邮箱验证码、发送冷却、
 每日上限、新密码校验与旧 token 失效全部由 NekoAuth 处理。
 
-**状态码:** `302` 跳转成功；`503` NekoAuth 根地址未配置或暂时不可用。
+**状态码:** `200` 成功；`503` NekoAuth 根地址未配置或暂时不可用。
 
 ---
 
@@ -3897,7 +3909,7 @@ async function getFavoritePlaylistMusic(playlistId) {
    - `POST /api/vip/pay/create` 需要登录，用于根据 `pricingId` 发起 VIP 购买并返回收银台地址或二维码。
 9. **忘记密码:**
    - 旧客户端仍可使用 `POST /api/user/send-reset-code` 与 `POST /api/user/reset-password`，后端会代理到 NekoAuth。
-   - 浏览器入口使用 `GET /sso/nekocore/forgot-password`，由 NekoAuth 完成人机验证、邮箱验证码、新密码设置与 token 失效。
+   - 浏览器入口通过 `POST /api/user/sso/password-reset-url` 获取 NekoAuth 找回密码地址，由 NekoAuth 完成人机验证、邮箱验证码、新密码设置与 token 失效。
 
 10. **分享视频渲染:**
    - 创建任务与查询状态需要登录；下载成片 **无需登录**。
