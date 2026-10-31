@@ -1411,7 +1411,9 @@ Authorization: Bearer <token>
 
 #### 24.1 发起登录
 
-**端点:** `GET /oauth/nekocore/start`
+**端点:** `GET /sso/nekocore/start`
+
+`/oauth/*` 是 NekoAuth 的保留命名空间，生产反向代理会优先将它转给账号中心。NekoMusic 自有浏览器入口统一放在 `/sso/*`；旧 `/oauth/nekocore/start` 仅保留兼容别名，新前端不再使用。
 
 **请求头:** 无需登录。浏览器直接导航即可。
 
@@ -1447,7 +1449,7 @@ Authorization: Bearer <token>
 `email_verified`，按 `sub` 查找或创建本地业务资料，再把短期 token 换成 NekoAuth 长期第一方 token。
 回调成功时不会在响应体或 URL 中返回用户 token，而是跳转到前端完成页并携带一次性 handoff。
 
-**响应（成功）:** `302` 跳转到 `/oauth/nekocore/complete?handoff=<一次性交接>`。
+**响应（成功）:** `302` 跳转到 `/sso/complete?handoff=<一次性交接>`。
 
 **响应示例（失败）:**
 
@@ -1469,7 +1471,7 @@ Authorization: Bearer <token>
 
 #### 24.3 完成单点登录并领取 Token
 
-**页面:** `GET /oauth/nekocore/complete`
+**页面:** `GET /sso/complete`
 
 前端收到回调后打开该页面。页面会立即读取并清除 URL 中的 `handoff`，然后调用下面的领取接口；
 成功后把 token 写入 `localStorage.userToken`，并按 `returnTo` 返回登录前页面。
@@ -1529,7 +1531,7 @@ Content-Type: application/json
 
 #### 24.4 找回密码入口
 
-**端点:** `GET /oauth/nekocore/forgot-password`
+**端点:** `GET /sso/nekocore/forgot-password`
 
 **请求头:** 无需登录。浏览器直接导航即可。
 
@@ -3895,7 +3897,7 @@ async function getFavoritePlaylistMusic(playlistId) {
    - `POST /api/vip/pay/create` 需要登录，用于根据 `pricingId` 发起 VIP 购买并返回收银台地址或二维码。
 9. **忘记密码:**
    - 旧客户端仍可使用 `POST /api/user/send-reset-code` 与 `POST /api/user/reset-password`，后端会代理到 NekoAuth。
-   - 浏览器入口使用 `GET /oauth/nekocore/forgot-password`，由 NekoAuth 完成人机验证、邮箱验证码、新密码设置与 token 失效。
+   - 浏览器入口使用 `GET /sso/nekocore/forgot-password`，由 NekoAuth 完成人机验证、邮箱验证码、新密码设置与 token 失效。
 
 10. **分享视频渲染:**
    - 创建任务与查询状态需要登录；下载成片 **无需登录**。
