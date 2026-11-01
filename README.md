@@ -1457,8 +1457,9 @@ Authorization: Bearer <token>
 | `code` | 是 | NekoAuth 返回的一次性授权码 |
 | `state` | 是 | 发起登录时生成的一次性 state，只能消费一次，10 分钟内有效 |
 
-服务端使用 HTTP Basic 向 NekoAuth 交换短期 access token，读取 UserInfo 的 `sub`、`email` 与
-`email_verified`，按 `sub` 查找或创建本地业务资料，再把短期 token 换成 NekoAuth 长期第一方 token。
+服务端使用 HTTP Basic 向 NekoAuth 交换短期 access token，读取 UserInfo 的 `sub` 与 `email`，
+按 `sub` 查找或创建本地业务资料，再把短期 token 换成 NekoAuth 长期第一方 token。邮箱验证状态由
+NekoAuth 管理，不作为 NekoMusic 登录门槛。
 回调成功时不会在响应体或 URL 中返回用户 token，而是跳转到前端完成页并携带一次性 handoff。
 
 **响应（成功）:** `302` 跳转到 `/sso/complete?handoff=<一次性交接>`。
