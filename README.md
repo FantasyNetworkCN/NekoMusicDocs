@@ -112,11 +112,11 @@ Accept-Language: zh-CN,zh;q=0.9
 
 ## 用户相关 API
 
-> **账号与 Token 权威源：** 本节的注册、登录、邮箱验证码、找回密码与改密的请求路径和字段保持不变，但校验、账号存储、用户 Token 签发、校验与吊销均由 NekoMusic 后端转发给 NekoAuth 完成。NekoMusic 本地不再保存用户密码或用户 Token，只保存 NekoAuth `sub` 对应的 `auth_user_id`、邮箱快照、昵称、头像和 VIP。旧客户端无需改成 OAuth 流程，也不需要获取 NekoAuth 的 client secret；登录响应中的 `token` 字段已改为 NekoAuth access token。
+> **账号与 Token 权威源：** 本节的注册、登录、邮箱验证码、找回密码与改密的请求路径和字段保持不变，但校验、账号存储、用户 Token 签发、校验与吊销均由 NekoMusic 后端转发给 NekoAuth 完成。NekoMusic 本地不再保存用户密码或用户 Token，只保存 NekoAuth `sub` 对应的 `auth_user_id`、邮箱快照、头像和 VIP，以及由 NekoAuth 实时同步的昵称展示缓存。旧客户端无需改成 OAuth 流程，也不需要获取 NekoAuth 的 client secret；登录响应中的 `token` 字段已改为 NekoAuth access token。
 >
 > 本次切换后，NekoMusic 旧版自行生成的随机 token 不再被接受，客户端需要重新登录一次。浏览器账号入口改为 NekoAuth OAuth 单点登录，详见 [NekoAuth 统一登录（服务端）](#24-nekoauth-统一登录服务端)。
 >
-> NekoAuth 客户端必须由部署者自行登记为机密客户端，并包含 `account:bridge` scope；NekoMusic 在认证设置中填写 `oauth.issuer`、`oauth.client_id`、`oauth.client_secret`。若同一客户端还要走浏览器 OAuth，再按需加入 `openid email roles`。NekoMusic 的昵称不写入 NekoAuth，首次登录/注册后按 NekoAuth 用户 ID 自动关联本地资料。
+> NekoAuth 客户端必须由部署者自行登记为机密客户端，并包含 `account:bridge` scope；NekoMusic 在认证设置中填写 `oauth.issuer`、`oauth.client_id`、`oauth.client_secret`。若同一客户端还要走浏览器 OAuth，再按需加入 `openid email profile roles`。NekoAuth 是昵称唯一权威源；注册与修改昵称都会写入 NekoAuth，登录、SSO 与令牌校验时再把最新昵称同步到 NekoMusic 的本地展示缓存。
 
 ### 1. 用户注册
 
@@ -150,6 +150,7 @@ Content-Type: application/json
 
 **说明:**
 
+- `nickname` 长度 1-32，不能包含控制字符；注册时提交的昵称由 NekoAuth 保存并成为权威昵称。
 - 邮箱验证码为 6 位数字，有有效期；同一邮箱对同一验证码的错误尝试次数过多时，该验证码会立即失效，须重新调用发送验证码接口获取新码。
 - 收到「验证码错误或已过期」时请重新获取验证码后再试，不要对同一个验证码反复尝试。
 - 同一来源请求过于频繁时返回 HTTP `429`，`Retry-After` 为建议等待秒数，客户端应按该值退避后再试。
@@ -829,7 +830,7 @@ Content-Type: application/json
 **请求体:**
 ```json
 {
-  "nickname": "string"  // 新昵称（必填，长度 1-20，不能包含违禁词）
+  "nickname": "string"  // 新昵称（必填，长度 1-32，不能包含控制字符或违禁词）
 }
 ```
 
@@ -848,7 +849,7 @@ Content-Type: application/json
 ```json
 {
   "success": false,
-  "message": "昵称长度需在1-20之间喵"
+  "message": "昵称长度需在1-32之间喵"
 }
 ```
 
@@ -872,7 +873,7 @@ Content-Type: application/json
 
 **说明:**
 - 此 API 需要登录才能访问
-- 昵称即账号用户名，规则与注册时一致：长度 1-20 个字符，且不能包含违禁词
+- 昵称规则与注册时一致：长度 1-32 个字符，且不能包含控制字符或违禁词；昵称由 NekoAuth 保存，NekoMusic 只更新本地展示缓存
 - 昵称允许重复（不要求唯一）；修改后不影响当前登录状态，无需重新登录
 - 修改成功后建议同步更新本地缓存的用户信息（如 `localStorage.user`）以刷新页面展示
 
@@ -1406,9 +1407,9 @@ Authorization: Bearer <token>
 本节是由 NekoMusic 服务端发起的 OAuth 2.0 授权码流程（机密客户端）。它不修改旧客户端使用的
 `/api/user/*` 路径与字段；登录响应里的 `token` 已是 NekoAuth 签发的 access token，原邮箱密码登录与扫码登录继续可用。浏览器端使用本节端点完成统一登录、注册和找回密码。
 
-**昵称边界：** NekoAuth 只用于身份认证。登录过程只读取 NekoAuth UserInfo 的 `sub` 与 `email`，
-不读取 `name` / `preferred_username`，也**不会写入、覆盖或同步 NekoMusic 昵称**。NekoMusic 昵称
-仍由 NekoMusic 自己的注册与昵称接口管理。
+**昵称边界：** NekoAuth 是昵称唯一权威源。NekoMusic 在 SSO 回调、登录、注册和每次令牌校验时读取
+NekoAuth 的 `name`，并与本地缓存比较；变化时更新本地展示缓存。NekoMusic 的昵称修改接口会先写
+NekoAuth，再更新本地缓存，不再单独维护昵称。
 
 #### 24.1 发起登录
 
