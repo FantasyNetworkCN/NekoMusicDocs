@@ -2,7 +2,7 @@
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko歌姬计划 署名及源码链接！
 
-#### 更新时间 2026年10月27日
+#### 更新时间 2026年11月2日
 ## 概述
 
 Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -29,6 +29,7 @@ Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用�
 - [歌曲评论 API](#歌曲评论-api)
 - [分享视频渲染 API](#分享视频渲染-api)
 - [外部音乐导入 API](#外部音乐导入-api)
+- [客户端更新 API](#客户端更新-api)
 - [错误码说明](#错误码说明)
 
 ---
@@ -3265,6 +3266,66 @@ importPlaylist(neteaseUrl);
 ```
 
 **说明**：上述导入接口（`/loser/{netease|qq|kugou|qishui}/pull`）必须携带用户令牌，且必须指定 `targetPlaylistId` 或 `targetPlaylistName`；站外匹配与下载全部在服务端完成。`source` 为 `kugou`、`qishui` 时曲目只有元数据，后端会先做站内匹配、再从网易云补全。
+
+---
+
+## 客户端更新 API
+
+### 1. 获取客户端版本与下载地址
+
+**端点:** `GET /version`
+
+**请求头:** 无需登录，不需要 `Authorization`。客户端应携带明确的 `User-Agent`。
+
+**请求参数:** 无。
+
+**响应示例（成功）**：
+```json
+{
+  "ver": "20260207-36",
+  "updateUrl": "https://music.nekocore.cn/update/20260207-36.apk",
+  "size": 20971520,
+  "pc": {
+    "pc_ver": "2026.207.6",
+    "windows": "https://music.nekocore.cn/update/Neko%E6%AD%8C%E5%A7%AC%E8%AE%A1%E5%88%92%20Setup%202026.207.6.exe",
+    "linux": "https://music.nekocore.cn/update/NekoMusic_2026.207.6_amd64.deb",
+    "mac": "https://music.nekocore.cn/update/Neko%E6%AD%8C%E5%A7%AC%E8%AE%A1%E5%88%922026.207.6.pkg",
+    "windows_size": 31457280,
+    "linux_size": 25165824,
+    "mac_size": 27262976
+  }
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `ver` | string | 当前 Android 手机客户端版本号 |
+| `updateUrl` | string | Android 手机安装包下载地址 |
+| `size` | number | Android 安装包字节数；`0` 表示安装包暂未上传 |
+| `pc.pc_ver` | string | 当前桌面客户端版本号 |
+| `pc.windows` / `pc.linux` / `pc.mac` | string | 对应平台安装包下载地址 |
+| `pc.windows_size` / `pc.linux_size` / `pc.mac_size` | number | 对应安装包字节数；`0` 表示暂未上传 |
+
+响应通常带有 `Cache-Control: public, max-age=60, must-revalidate`，客户端和 CDN 可缓存 60 秒。
+
+**响应示例（失败）**：
+```json
+{
+  "success": false,
+  "message": "客户端版本尚未配置"
+}
+```
+
+**状态码:**
+
+| 状态码 | 说明 |
+|--------|------|
+| 200 | 成功返回当前对外版本与下载地址 |
+| 503 | 尚未配置客户端版本 |
+
+**破坏性变更（2026-11-02）：** 响应不再包含 `watch` 对象；iOS 客户端和 Android 手表安装包不再分发，
+也不再提供对应上传入口。macOS 安装包继续通过 `pc.mac` / `pc.mac_size` 提供。客户端应忽略已不存在的
+`watch` 字段，并按实际平台读取 `updateUrl` 或 `pc.*` 下载地址。
 
 ---
 
