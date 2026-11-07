@@ -1385,7 +1385,7 @@ NekoAuth，不维护任何服务端昵称副本。
 **请求体:**
 
 ```json
-{ "client": "web", "returnTo": "/favorites" }
+{ "client": "web", "returnTo": "/favorites", "silent": false }
 ```
 
 **响应:**
@@ -1400,10 +1400,14 @@ NekoAuth，不维护任何服务端昵称副本。
 | --- | --- | --- |
 | `client` | 否 | 登录客户端类型：`web`、`android` 或 `pc`，默认 `web`；决定回调后使用站内完成页还是 App 深链 |
 | `returnTo` | 否 | 登录成功后的站内相对路径，必须以单个 `/` 开头；默认 `/`。服务端会把它写入一次性 state，回调时不再接受外部传入的跳转地址。 |
+| `silent` | 否 | 为 `true` 时使用 OIDC `prompt=none`，只复用 NekoAuth 当前浏览器会话；默认 `false`。无法静默完成时回到 `returnTo` 并保持未登录状态。 |
 
 前端拿到 `url` 后直接导航到 NekoAuth。授权地址和一次性 state 由 NekoMusic 后端生成；授权请求包含
 OIDC nonce 与 PKCE S256 challenge。NekoAuth 根地址、客户端 ID、回调地址与 scope 由管理员在
 「系统设置 → NekoAuth 登录」中维护，不写死在客户端。
+
+Web 端在 NekoAuth 已登录且本地没有 NekoMusic token 时，可使用 `silent=true` 自动尝试无感登录。
+客户端应避免对同一页面重复发起静默授权；静默失败不是错误弹窗场景，应直接按游客态继续加载。
 
 **状态码:**
 
