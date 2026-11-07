@@ -69,7 +69,7 @@ Accept-Language: zh-CN,zh;q=0.9
 
 ## 用户相关 API
 
-> **账号与 Token 权威源：** 本节的注册、登录、邮箱验证码、找回密码与改密的请求路径和字段保持不变，但校验、账号存储、用户 Token 签发、校验与吊销均由 NekoMusic 后端转发给 NekoAuth 完成。NekoMusic 本地不再保存用户密码、用户 Token 或用户昵称，只保存 NekoAuth `sub` 对应的 `auth_user_id`、邮箱快照、头像和 VIP；昵称在展示、搜索与通知场景中通过 NekoAuth 实时解析。旧客户端无需改成 OAuth 流程，也不需要获取 NekoAuth 的 client secret；登录响应中的 `token` 字段已改为 NekoAuth access token。
+> **账号与 Token 权威源：** 本节的注册、登录、邮箱验证码、找回密码与改密的请求路径和字段保持不变，但校验、账号存储、用户 Token、头像签发、校验与吊销均由 NekoMusic 后端转发给 NekoAuth 完成。NekoMusic 本地不再保存用户密码、用户 Token、用户昵称或独立头像，只保存 NekoAuth `sub` 对应的 `auth_user_id`、邮箱快照和 VIP；昵称与头像在展示、搜索和通知场景中通过 NekoAuth 实时解析。旧客户端无需改成 OAuth 流程，也不需要获取 NekoAuth 的 client secret；登录响应中的 `token` 字段已改为 NekoAuth access token。
 >
 > 本次切换后，NekoMusic 旧版自行生成的随机 token 不再被接受，客户端需要重新登录一次。浏览器账号入口改为 NekoAuth OAuth 单点登录，详见 [NekoAuth 统一登录（服务端）](#24-nekoauth-统一登录服务端)。
 >
@@ -279,7 +279,11 @@ Content-Type: application/json
 **路径参数:**
 - `userId`: 用户 ID
 
-**响应:** 图片文件 (PNG/JPG)
+**响应:** 图片文件（PNG/JPEG/GIF/WebP/BMP；默认头像为 Auth favicon ICO）。NekoMusic 保留原路径和响应语义，但图片由 NekoMusic 后端从 NekoAuth 的公开头像地址获取并原样返回。
+
+**默认头像:** `GET /api/user/avatar/default` 同样保留，内容为 NekoAuth 站点的默认头像。
+
+**状态码:** `200` 图片；`304` ETag 未变化；`502` NekoAuth 头像服务暂时不可用；`503` NekoAuth 地址未配置。
 
 ### 7. 获取收藏列表
 
@@ -595,9 +599,13 @@ Content-Type: multipart/form-data
 {
   "success": true,
   "message": "头像上传成功",
-  "avatarPath": "avatars/1_550e8400-e29b-41d4-a716-446655440000.jpg"
+  "avatarUrl": "/api/user/avatar/1",
+  "avatarPath": "/api/user/avatar/1"
 }
 ```
+
+`avatarPath` 为兼容字段，与 `avatarUrl` 指向同一个 NekoMusic 兼容代理地址。实际图片由 NekoAuth 保存；
+NekoMusic 不再生成本地头像文件。
 
 **响应示例（失败）:**
 ```json
@@ -613,6 +621,8 @@ Content-Type: multipart/form-data
   "error": "文件大小超过10MiB限制"
 }
 ```
+
+**状态码:** `200` 成功；`400` 未选择文件、格式不支持或超过 10MiB；`401` 未登录；`502` NekoAuth 头像服务暂时不可用；`503` NekoAuth 未配置。
 
 ### 16. 用户上传音乐
 
@@ -3441,7 +3451,7 @@ async function uploadAvatar(avatarFile) {
   
   const data = await response.json();
   if (data.success) {
-    console.log('头像上传成功:', data.avatarPath);
+    console.log('头像上传成功:', data.avatarUrl);
   } else {
     console.error('头像上传失败:', data.error);
   }
@@ -3916,9 +3926,9 @@ async function getFavoritePlaylistMusic(playlistId) {
 4. **速率限制:** 建议客户端实现适当的请求速率限制，避免频繁请求
 5. **头像上传:**
    - 支持的图片格式：jpg, jpeg, png, gif, webp, bmp
-   - 最大文件大小：50MiB
+   - 最大文件大小：10MiB
    - 只允许图片类型文件上传，会严格验证 MIME 类型
-   - 头像文件保存在 `avatars/` 目录下
+   - 头像上传转发到 NekoAuth，NekoMusic 不再独立保存头像文件
 6. **密码修改:**
    - 新密码长度不能少于 6 位
    - 新密码不能与原密码相同
