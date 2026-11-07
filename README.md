@@ -72,7 +72,7 @@ Accept-Language: zh-CN,zh;q=0.9
 >
 > 客户端必须通过 NekoAuth 登录页或扫码登录取得 Token，不得再调用已下线的邮箱密码注册、登录、验证码、找回密码或改密接口。
 >
-> NekoAuth 客户端必须由部署者自行登记为机密客户端，并包含 `account:bridge` scope；浏览器 OIDC 登录还要求 `openid profile email`，默认配置另含 `roles`。NekoMusic 在认证设置中填写 `oauth.issuer`、`oauth.client_id`、`oauth.client_secret`。NekoAuth 是昵称唯一权威源；注册与修改昵称都会写入 NekoAuth，NekoMusic 不保存昵称副本，展示时实时读取。
+> NekoAuth 客户端必须由部署者自行登记为机密客户端，OIDC 登录要求 `openid profile email`，默认配置另含 `roles`。NekoMusic 在认证设置中填写 `oauth.issuer`、`oauth.client_id`、`oauth.client_secret`。NekoAuth 是昵称唯一权威源；注册与修改昵称都会写入 NekoAuth，NekoMusic 不保存昵称副本，展示时实时读取。
 
 ### 6. 获取用户头像
 
@@ -381,51 +381,6 @@ Authorization: <token>
 - `source`: 推荐来源（当前固定为 `rule`，即规则召回与排序）
 - `reason`: 推荐理由（用于前端展示）
 
-### 15. 上传用户头像
-
-**端点:** `POST /api/user/avatar/upload`
-
-**请求头:**
-```
-Authorization: Bearer <token>
-Content-Type: multipart/form-data
-```
-
-**请求参数:**
-- `avatar`: 图片文件 (multipart/form-data)
-  - 支持格式：jpg, jpeg, png, gif, webp, bmp
-  - 最大文件大小：10MiB
-
-**响应示例（成功）:**
-```json
-{
-  "success": true,
-  "message": "头像上传成功",
-  "avatarUrl": "/api/user/avatar/1",
-  "avatarPath": "/api/user/avatar/1"
-}
-```
-
-`avatarPath` 为兼容字段，与 `avatarUrl` 指向同一个 NekoMusic 兼容代理地址。实际图片由 NekoAuth 保存；
-NekoMusic 不再生成本地头像文件。
-
-**响应示例（失败）:**
-```json
-{
-  "error": "未授权访问"
-}
-```
-
-或
-
-```json
-{
-  "error": "文件大小超过10MiB限制"
-}
-```
-
-**状态码:** `200` 成功；`400` 未选择文件、格式不支持或超过 10MiB；`401` 未登录；`502` NekoAuth 头像服务暂时不可用；`503` NekoAuth 未配置。
-
 ### 16. 用户上传音乐
 
 **端点:** `POST /api/user/upload`
@@ -535,94 +490,6 @@ formData.append('coverFile', coverFileObject); // 可选
 formData.append('lyricsFile', lyricsFileObject); // 可选
 
 uploadMusic(formData);
-```
-
-### 18. 修改用户昵称
-
-**端点:** `POST /api/user/nickname/change`
-
-**请求头:**
-```
-Authorization: Bearer <token>
-Content-Type: application/json
-```
-
-**请求体:**
-```json
-{
-  "nickname": "string"  // 新昵称（必填，长度 1-32，不能包含控制字符或违禁词）
-}
-```
-
-**响应示例（成功）:**
-```json
-{
-  "success": true,
-  "message": "昵称修改成功喵！",
-  "data": {
-    "nickname": "新昵称"
-  }
-}
-```
-
-**响应示例（失败）:**
-```json
-{
-  "success": false,
-  "message": "昵称长度需在1-32之间喵"
-}
-```
-
-或
-
-```json
-{
-  "success": false,
-  "message": "昵称包含违禁词喵"
-}
-```
-
-或
-
-```json
-{
-  "success": false,
-  "message": "未授权访问，请先登录"
-}
-```
-
-**说明:**
-- 此 API 需要登录才能访问
-- 昵称规则与注册时一致：长度 1-32 个字符，且不能包含控制字符或违禁词；昵称只由 NekoAuth 保存，NekoMusic 不保存昵称副本
-- 昵称允许重复（不要求唯一）；修改后不影响当前登录状态，无需重新登录
-- 修改成功后建议同步更新本地缓存的用户信息（如 `localStorage.user`）以刷新页面展示
-
-**前端集成示例:**
-```javascript
-async function changeNickname(nickname) {
-  const token = localStorage.getItem('userToken');
-
-  const response = await fetch('https://music.nekocore.cn/api/user/nickname/change', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ nickname })
-  });
-
-  const data = await response.json();
-  if (data.success) {
-    // 刷新客户端本地用户资料，后续展示以 NekoAuth 当前昵称为准
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    user.nickname = data.data.nickname;
-    localStorage.setItem('user', JSON.stringify(user));
-    alert('昵称修改成功！');
-  } else {
-    alert('昵称修改失败：' + data.message);
-  }
-  return data;
-}
 ```
 
 ### 19. 获取用户上传审核通过的音乐
@@ -1103,9 +970,9 @@ Content-Type: application/json
 Authorization: Bearer <token>
 ```
 
-无请求体。调用后该 Token 立即失效，同时会注销浏览器当前 NekoAuth 父域共享会话，并通过
-`Set-Cookie` 清除 `nekoauth_sso_session` 与 `nekoauth_session_hint`。客户端应同时清除本地保存的
-Token 与用户资料。
+无请求体。调用后该 access token 立即失效。需要同时退出 Auth 浏览器会话时，客户端再调用
+`POST /api/user/sso/logout-url` 并导航到返回的标准 OIDC 注销地址。客户端应同时清除本地保存的
+Token、ID Token 与用户资料。
 
 接口是幂等的：Token 已失效、或同一 Token 重复调用，都返回成功。客户端可以先调用本接口再清本地状态；
 即使请求失败也应继续完成本地登出，不要因为登出请求失败而把用户留在已登录界面。
@@ -1133,38 +1000,7 @@ Web、Android 与 PC 都通过本节端点完成统一登录与注册；邮箱�
 评论、通知、歌单、用户搜索与后台展示都读取 NekoAuth 返回的当前昵称。NekoMusic 的昵称修改接口只写
 NekoAuth，不维护任何服务端昵称副本。
 
-#### 24.1 Web 直接登录入口
-
-**端点:** `POST /api/user/sso/login-entry`
-
-**请求体:**
-
-```json
-{ "returnTo": "/favorites" }
-```
-
-**响应:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "url": "https://auth.nekocore.cn/login?return_to=https%3A%2F%2Fmusic.nekocore.cn%2Ffavorites"
-  }
-}
-```
-
-Web 点击登录时必须使用该入口直接打开 NekoAuth 普通登录页，不再创建 OAuth 授权码。登录完成后
-NekoAuth 直接回跳 Music，并已写入父域共享 SSO Cookie；Music 再调用
-`POST /api/user/sso/cookie-login` 恢复登录态。
-
-**状态码:**
-
-- `200`: 登录地址生成成功
-- `400`: `returnTo` 不是合法站内相对路径
-- `503`: NekoAuth 登录未启用或配置不完整
-
-#### 24.2 OIDC 发起登录（原生客户端）
+#### 24.1 OIDC 发起登录
 
 **端点:** `POST /api/user/sso/start`
 
@@ -1186,20 +1022,21 @@ NekoAuth 直接回跳 Music，并已写入父域共享 SSO Cookie；Music 再调
 | --- | --- | --- |
 | `client` | 否 | 登录客户端类型：`web`、`android` 或 `pc`，默认 `web`；决定回调后使用站内完成页还是 App 深链 |
 | `returnTo` | 否 | 登录成功后的站内相对路径，必须以单个 `/` 开头；默认 `/`。服务端会把它写入一次性 state，回调时不再接受外部传入的跳转地址。 |
+| `silent` | 否 | 为 `true` 时使用 `prompt=none`，仅复用现有 Auth 浏览器会话，不展示登录表单 |
 
 前端拿到 `url` 后直接导航到 NekoAuth。授权地址和一次性 state 由 NekoMusic 后端生成；授权请求包含
 OIDC nonce 与 PKCE S256 challenge。NekoAuth 根地址、客户端 ID、回调地址与 scope 由管理员在
 「系统设置 → NekoAuth 登录」中维护，不写死在客户端。
 
-Web 登录按钮应直接导航到 NekoAuth 登录页，不再打开本地账号表单。NekoAuth 登录完成后写入父域
-HttpOnly `nekoauth_sso_session` 会话句柄；其他子域通过后端兑换该会话，不需要再次跳转 Auth。
+Web、Android 与 PC 都通过标准 OAuth 授权码流程登录。子域存在 `nekoauth_session_hint` 时，
+前端可发起一次 `silent=true` 的静默授权；该提示只表示浏览器可能持有 Auth 会话，不包含身份凭据。
 
 **状态码:**
 
 - `400`: `return_to` 不是合法站内相对路径
 - `503`: NekoAuth 登录未启用或配置不完整
 
-#### 24.3 授权回调
+#### 24.2 授权回调
 
 **端点:** `GET /sso/nekocore/callback`
 
@@ -1221,7 +1058,7 @@ HttpOnly `nekoauth_sso_session` 会话句柄；其他子域通过后端兑换该
 服务端通过 OIDC 发现文档取得端点，使用 HTTP Basic、授权码和 PKCE `code_verifier` 交换短期
 access token 与 ID Token。ID Token 必须通过 NekoAuth JWKS 验签，并校验 `iss`、`aud`、`azp`、
 `nonce`、`at_hash` 与 UserInfo 的 `sub` 一致。随后读取 UserInfo 的 `sub` 与 `email`，按 `sub` 查找或创建
-本地业务资料，再把短期 token 换成 NekoAuth 长期第一方 token。邮箱验证状态由 NekoAuth 管理，
+本地业务资料，并把同一枚 NekoAuth access token 放入一次性 handoff。邮箱验证状态由 NekoAuth 管理，
 不作为 NekoMusic 登录门槛。
 回调成功时不会在响应体或 URL 中返回用户 token，而是跳转到前端完成页并携带一次性 handoff。
 
@@ -1250,10 +1087,10 @@ Android / PC 收到深链后必须调用 `POST /api/user/sso/claim` 兑换 token
 - `302`: 授权成功，跳转到前端完成页
 - `400`: 缺少授权码、state 无效或已过期
 - `403`: 用户取消授权或账号关联失败
-- `502`: NekoAuth 令牌交换、ID Token 校验、UserInfo 获取或长期 token 交换失败
+- `502`: NekoAuth 令牌交换、ID Token 校验或 UserInfo 获取失败
 - `503`: NekoAuth 登录未启用、配置不完整或暂时不可用
 
-#### 24.4 完成单点登录并领取 Token
+#### 24.3 完成单点登录并领取 Token
 
 **页面:** `GET /sso/complete`
 
@@ -1308,9 +1145,9 @@ Content-Type: application/json
 - `410`: handoff 不存在、已过期、已领取，或对应账号资料已不可用
 - `429`: 登录尝试过于频繁；按 `Retry-After` 退避
 - `502`: NekoAuth 暂时不可用
-- `503`: NekoAuth 登录或账号桥接未配置
+- `503`: NekoAuth 登录未启用或配置不完整
 
-#### 24.5 NekoAuth 账号页面
+#### 24.4 NekoAuth 账号页面
 
 **端点:** `GET /api/user/sso/portal-url?target=account|register|forgot-password`
 
@@ -1333,7 +1170,7 @@ Web 在当前浏览器中打开该地址，Android 在应用内 WebView 中打�
 
 **状态码:** `200` 成功；`400` 不支持的目标；`429` 请求过于频繁；`503` NekoAuth 地址未配置。
 
-#### 24.6 找回密码入口
+#### 24.5 找回密码入口
 
 **端点:** `POST /api/user/sso/password-reset-url`
 
@@ -1344,45 +1181,31 @@ Web 在当前浏览器中打开该地址，Android 在应用内 WebView 中打�
 
 **状态码:** `200` 成功；`503` NekoAuth 根地址未配置或暂时不可用。
 
-#### 24.7 父域共享会话登录
+#### 24.6 同步退出 NekoAuth
 
-**端点:** `POST /api/user/sso/cookie-login`
+**端点:** `POST /api/user/sso/logout-url`
 
-**认证:** 浏览器必须携带 NekoAuth 写入的父域 HttpOnly `nekoauth_sso_session` Cookie；不接受请求体。
+**请求体:**
 
-**响应示例（成功）:**
+```json
+{ "idToken": "<登录领取的 ID Token>" }
+```
+
+**响应:**
 
 ```json
 {
   "success": true,
-  "message": "登录成功",
   "data": {
-    "token": "<NekoAuth access token>",
-    "returnTo": "/",
-    "user": {
-      "id": 1,
-      "nickname": "昵称",
-      "email": "email@example.com",
-      "createdAt": "2024-01-01T00:00:00",
-      "isVip": false,
-      "vipExpiresAt": null
-    }
+    "url": "https://auth.nekocore.cn/oauth2/logout?id_token_hint=...&client_id=...&post_logout_redirect_uri=..."
   }
 }
 ```
 
-该接口只读取同源请求中的父域 SSO Cookie，并由 NekoMusic 后端向 Auth 兑换当前应用登录态，
-不会让浏览器跳转 Auth。响应使用 `Cache-Control: private, no-store`。
-兑换得到的 token 与当前 Auth 浏览器会话族绑定；用户在 Auth 后台撤销该设备后，token 立即失效。
-客户端回到前台或重新打开时应调用 `GET /api/user/info` 校准登录态；收到 `401` 后清除本地 token，
-不要继续显示为已登录。
+客户端先调用 `/api/user/logout` 吊销当前 access token，再导航到该标准 OIDC 注销地址。Auth 会撤销当前
+浏览器会话族及其关联令牌。客户端随后按 `GET /api/user/info` 的 `401` 清除本地登录态。
 
-**状态码:**
-
-- `200`: 共享会话有效，登录成功
-- `401`: 没有共享会话或会话已失效
-- `429`: 登录尝试过于频繁；按 `Retry-After` 退避
-- `502`: NekoAuth 暂时不可用
+**状态码:** `200` 成功；`400` 缺少或非法的 ID Token；`503` NekoAuth 登录未启用或配置不完整。
 
 ---
 
@@ -3188,12 +3011,12 @@ importPlaylist(neteaseUrl);
 
 ```javascript
 async function openLogin(returnTo = location.pathname) {
-  const response = await fetch('https://music.nekocore.cn/api/user/sso/login-entry', {
+  const response = await fetch('https://music.nekocore.cn/api/user/sso/start', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ returnTo })
+    body: JSON.stringify({ client: 'web', returnTo, silent: false })
   });
 
   const data = await response.json();
@@ -3257,32 +3080,6 @@ async function getFavorites() {
   });
   
   return await response.json();
-}
-```
-
-### 上传用户头像
-
-```javascript
-async function uploadAvatar(avatarFile) {
-  const token = localStorage.getItem('userToken');
-  const formData = new FormData();
-  formData.append('avatar', avatarFile);
-  
-  const response = await fetch('https://music.nekocore.cn/api/user/avatar/upload', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`
-    },
-    body: formData
-  });
-  
-  const data = await response.json();
-  if (data.success) {
-    console.log('头像上传成功:', data.avatarUrl);
-  } else {
-    console.error('头像上传失败:', data.error);
-  }
-  return data;
 }
 ```
 
@@ -3571,35 +3368,6 @@ async function removeMusicFromPlaylist(playlistId, musicIds) {
     alert(data.message || '部分音乐未能从歌单中移除');
   } else {
     console.error('音乐从歌单中移除失败:', data.message);
-  }
-  return data;
-}
-```
-
-### 修改用户昵称
-
-```javascript
-async function changeNickname(nickname) {
-  const token = localStorage.getItem('userToken');
-
-  const response = await fetch('https://music.nekocore.cn/api/user/nickname/change', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ nickname: nickname })
-  });
-
-  const data = await response.json();
-  if (data.success) {
-    // 刷新客户端本地用户资料，后续展示以 NekoAuth 当前昵称为准
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    user.nickname = data.data.nickname;
-    localStorage.setItem('user', JSON.stringify(user));
-    alert('昵称修改成功！');
-  } else {
-    alert('昵称修改失败：' + data.message);
   }
   return data;
 }
