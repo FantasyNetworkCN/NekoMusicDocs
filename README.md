@@ -1380,7 +1380,38 @@ Token 与用户资料。
 评论、通知、歌单、用户搜索与后台展示都读取 NekoAuth 返回的当前昵称。NekoMusic 的昵称修改接口只写
 NekoAuth，不维护任何服务端昵称副本。
 
-#### 24.1 发起登录
+#### 24.1 Web 直接登录入口
+
+**端点:** `POST /api/user/sso/login-entry`
+
+**请求体:**
+
+```json
+{ "returnTo": "/favorites" }
+```
+
+**响应:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "url": "https://auth.nekocore.cn/login?return_to=https%3A%2F%2Fmusic.nekocore.cn%2Ffavorites"
+  }
+}
+```
+
+Web 点击登录时必须使用该入口直接打开 NekoAuth 普通登录页，不再创建 OAuth 授权码。登录完成后
+NekoAuth 直接回跳 Music，并已写入父域共享 SSO Cookie；Music 再调用
+`POST /api/user/sso/cookie-login` 恢复登录态。
+
+**状态码:**
+
+- `200`: 登录地址生成成功
+- `400`: `returnTo` 不是合法站内相对路径
+- `503`: NekoAuth 登录未启用或配置不完整
+
+#### 24.2 OIDC 发起登录（原生客户端）
 
 **端点:** `POST /api/user/sso/start`
 
@@ -1415,7 +1446,7 @@ HttpOnly `nekoauth_sso_session` 会话句柄；其他子域通过后端兑换该
 - `400`: `return_to` 不是合法站内相对路径
 - `503`: NekoAuth 登录未启用或配置不完整
 
-#### 24.2 授权回调
+#### 24.3 授权回调
 
 **端点:** `GET /sso/nekocore/callback`
 
@@ -1469,7 +1500,7 @@ Android / PC 收到深链后必须调用 `POST /api/user/sso/claim` 兑换 token
 - `502`: NekoAuth 令牌交换、ID Token 校验、UserInfo 获取或长期 token 交换失败
 - `503`: NekoAuth 登录未启用、配置不完整或暂时不可用
 
-#### 24.3 完成单点登录并领取 Token
+#### 24.4 完成单点登录并领取 Token
 
 **页面:** `GET /sso/complete`
 
@@ -1527,7 +1558,7 @@ Content-Type: application/json
 - `502`: NekoAuth 暂时不可用
 - `503`: NekoAuth 登录或账号桥接未配置
 
-#### 24.4 NekoAuth 账号页面
+#### 24.5 NekoAuth 账号页面
 
 **端点:** `GET /api/user/sso/portal-url?target=account|register|forgot-password`
 
@@ -1550,7 +1581,7 @@ Web 在当前浏览器中打开该地址，Android 在应用内 WebView 中打�
 
 **状态码:** `200` 成功；`400` 不支持的目标；`429` 请求过于频繁；`503` NekoAuth 地址未配置。
 
-#### 24.5 找回密码入口
+#### 24.6 找回密码入口
 
 **端点:** `POST /api/user/sso/password-reset-url`
 
@@ -1561,7 +1592,7 @@ Web 在当前浏览器中打开该地址，Android 在应用内 WebView 中打�
 
 **状态码:** `200` 成功；`503` NekoAuth 根地址未配置或暂时不可用。
 
-#### 24.6 父域共享会话登录
+#### 24.7 父域共享会话登录
 
 **端点:** `POST /api/user/sso/cookie-login`
 
