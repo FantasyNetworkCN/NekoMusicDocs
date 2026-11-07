@@ -1429,7 +1429,9 @@ access token 与 ID Token。ID Token 必须通过 NekoAuth JWKS 验签，并校�
 **响应（成功）:**
 
 - `client=web`：`302` 跳转到 `/sso/complete?handoff=<一次性交接>`。
-- `client=android` 或 `pc`：`302` 跳转到 `nekomusic://sso/complete?handoff=<一次性交接>`，由 App 领取交接。
+- `client=android` 或 `pc`：`302` 跳转到
+  `/sso/native-complete?client=<client>&handoff=<一次性交接>`。该站内 HTTPS 页面随后打开
+  `nekomusic://sso/complete?handoff=<一次性交接>`；若浏览器阻止自动跳转，页面会提供“打开 NekoMusic”按钮。
 
 Android / PC 收到深链后必须调用 `POST /api/user/sso/claim` 兑换 token；深链中只有一次性 handoff，
 不得携带 access token。`client` 类型由发起登录时写入 state，回调参数不能覆盖。
