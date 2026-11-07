@@ -2,14 +2,14 @@
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko歌姬计划 署名及源码链接！
 
-#### 更新时间 2026年11月2日
+#### 更新时间 2026年11月8日
 ## 概述
 
 Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
 
 **基础 URL:** `https://music.nekocore.cn`
 
-> **接口防护：** `/api/*` 启用了防爬与客户端区分，并带请求频率限制。自动化抓取不会拿到 JSON：`GET`/`HEAD` 会得到对应 SEO 页面的 HTML，其它方法直接返回 `403`；超频返回 `429`。客户端需要遵守的约定见专项文档 [防爬与客户端识别（专项）](API-防爬与客户端识别.md)；具体判定规则、关键词、放行名单与阈值不对外公开。
+> **请求限制：** `/api/*` 带来源频率限制，超频返回 `429`。
 
 ## 目录
 
@@ -18,9 +18,6 @@ Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用�
 - [用户相关 API](#用户相关-api)
 - [NekoAuth 统一登录（服务端）](#24-nekoauth-统一登录服务端)
 - [滑块人机验证与注册邮箱验证码（专项）](API-滑块与人机验证.md)
-- [防爬与客户端识别（专项）](API-防爬与客户端识别.md)
-- [客户端身份与 Client ID 接入（专项）](API-客户端身份与Client-ID.md)
-- [请求防重放（专项）](API-请求防重放.md)
 - [歌单相关 API](#歌单相关-api)
 - [歌手相关 API](#歌手相关-api)
 - [VIP 与价目 API](#vip-与价目-api)
@@ -47,46 +44,6 @@ Authorization: <token>
 Token 由 NekoAuth 在登录或注册成功后签发并返回给客户端，NekoMusic 只保存本地业务资料，不再保存用户 Token。
 
 **Token 有效期:** 第一方登录默认 365 天；修改密码、管理员重置密码、账号停用、主动登出或 NekoAuth 吊销后立即失效。
-
-### 客户端身份（Client ID）
-
-除公开接口与自举接口外，**所有动态接口**（`/api/*`、`/loser/*`）还需要携带 Client ID、实例 ID、
-实例短期令牌和每请求签名；仅带 `X-Neko-Client` 不足以通过校验。官方客户端已预置身份，第三方客户端
-必须先联系管理员申请 Client ID，再完成实例注册与令牌续签。
-
-Client ID 是公开的应用标识，不是访问凭据；每个安装实例都必须使用自己的 EC P-256 私钥签名。完整的
-申请材料、注册流程、续签方式和请求签名串见
-**[客户端身份与 Client ID 接入（专项）](API-客户端身份与Client-ID.md)**。
-
-### 防重放 nonce（所有动态接口）
-
-除白名单外，**所有动态接口**（`/api/*`、`/loser/*`）都必须携带一次性请求头 `X-Neko-Nonce`，
-否则返回 `409`：
-
-```
-X-Neko-Nonce: <nonce>
-```
-
-- 领取（必填两步）：先 `GET /api/replay/challenge` 换题并解出 `proof`，再带 `challenge` / `proof`
-  调 `GET /api/replay/nonce` 兑换；不带挑战的领取会被拒绝（`409`，见专项文档）。挑战难度由服务端按
-  来源频率加压下发、无固定上限，客户端必须按响应值自适应并在超出自身可解能力时退避。
-- 每个 nonce **只能使用一次**；重放同一个请求会被拒绝（`409`），且被拒的请求不会执行。
-- nonce 分读 / 写两类（`GET` 用读类别，写方法用写类别），短时有效，过期后重新领取。
-- nonce 的具体形态、有效期与判定规则属服务端安全实现，不对外公开。
-- 换题与兑换都可能返回 `429`（过于频繁）或 `503`（暂时不可用），客户端应按专项文档重试。
-- 用于换取音质解析结果的 `GET /api/music/file/{id}` 也在保护范围内。
-- 静态资源（`/media/*`、`/assets/*`、安装包）不校验，其缓存行为不变。
-
-白名单（无需 nonce）：`/api/replay/challenge`、`/api/replay/nonce`、`/api/music/latest`、`/api/music/ranking`、
-客户端身份自举 `/api/client/challenge`、`/api/client/register`、`/api/client/token`、
-封面 `/api/music/cover/*`、头像 `/api/user/avatar/*`、扫码登录 SSE `/api/user/qrlogin/status`、
-站内消息 SSE `/api/user/notifications/stream`、`/loser/*/pull`（SSE）、支付回调 `/api/payment/zpay/notify`、
-文件上传接口以 `multipart/form-data` 提交时（其余接口即便把 `Content-Type` 写成 `multipart/...`
-也必须携带 nonce）、以及 `OPTIONS` / `HEAD`。
-
-详见 **[请求防重放（专项）](API-请求防重放.md)**。
-
----
 
 ## 响应文案语言
 
@@ -1532,13 +1489,11 @@ Content-Type: application/json
 - 领取到的 token 与旧 `/api/user/login` 返回的 `token` 语义相同，后续继续放在
   `Authorization: Bearer <token>` 或旧接口约定的裸 token 位置。
 - 响应使用 `Cache-Control: private, no-store`，token 不会写回 URL。
-- 该动态接口遵循全站防重放约定，需要 `X-Neko-Nonce`；官方 Web 前端会自动补上。
 
 **状态码:**
 
 - `200`: 领取成功
 - `400`: 请求体格式不正确
-- `409`: 缺少、过期或重复使用的防重放 nonce
 - `410`: handoff 不存在、已过期、已领取，或对应账号资料已不可用
 - `429`: 登录尝试过于频繁；按 `Retry-After` 退避
 - `502`: NekoAuth 暂时不可用
@@ -2401,11 +2356,7 @@ Content-Type: application/json
 
 **端点:** `GET /api/music/file/{id}`
 
-**请求头:**
-
-```
-X-Neko-Nonce: <一次性 nonce>   // 必填，见「防重放 nonce（所有动态接口）」
-```
+**请求头:** 无需登录；建议携带标准 `User-Agent`。
 
 **路径参数:**
 - `id`: 音乐 ID
@@ -2453,16 +2404,13 @@ GET /api/music/file/1?quality=hq
 ```json
 {
   "success": false,
-  "message": "请求已失效，请刷新后重试"
+  "message": "音乐不存在或音质处理失败"
 }
 ```
 
-> **破坏性变更（需要客户端适配）**
-> 本接口不再返回 `302` 重定向，而是返回 `200` + JSON `data.url`，并且必须携带 `X-Neko-Nonce`。
-> **迁移方式**：先调 `GET /api/replay/nonce` 领取 nonce，再带 `X-Neko-Nonce` 调本接口，最后 GET
-> `data.url` 取音频字节。
+> 本接口返回 `200` + JSON `data.url`，客户端再对 `data.url` 发起普通 GET 获取音频字节。
 
-**状态码:** `200` 成功；`409` 缺少 / 重放 / 过期 nonce；`404` 音乐不存在或音质处理失败；`400` 无效的音乐 ID。
+**状态码:** `200` 成功；`404` 音乐不存在或音质处理失败；`400` 无效的音乐 ID。
 
 ### 4. 获取音乐封面
 
@@ -3340,7 +3288,7 @@ importPlaylist(neteaseUrl);
 | 401 | 未授权，需要登录或 Token 无效 |
 | 403 | 禁止访问，权限不足 |
 | 404 | 资源不存在 |
-| 409 | 资源状态冲突（如视频尚未渲染完成）；动态接口缺少 / 重放一次性 nonce |
+| 409 | 资源状态冲突（如视频尚未渲染完成） |
 | 429 | 请求过于频繁或超出每日配额 |
 | 503 | 服务不可用（功能关闭或渲染队列已满） |
 | 500 | 服务器内部错误 |
