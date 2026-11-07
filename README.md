@@ -1622,6 +1622,8 @@ Web 在当前浏览器中打开该地址，Android 在应用内 WebView 中打�
 该接口只读取同源请求中的父域 SSO Cookie，并由 NekoMusic 后端向 Auth 兑换当前应用登录态，
 不会让浏览器跳转 Auth。响应使用 `Cache-Control: private, no-store`。
 兑换得到的 token 与当前 Auth 浏览器会话族绑定；用户在 Auth 后台撤销该设备后，token 立即失效。
+客户端回到前台或重新打开时应调用 `GET /api/user/info` 校准登录态；收到 `401` 后清除本地 token，
+不要继续显示为已登录。
 
 **状态码:**
 
