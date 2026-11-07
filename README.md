@@ -17,7 +17,6 @@ Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用�
 - [响应文案语言](#响应文案语言)
 - [用户相关 API](#用户相关-api)
 - [NekoAuth 统一登录（服务端）](#24-nekoauth-统一登录服务端)
-- [滑块人机验证与注册邮箱验证码（专项）](API-滑块与人机验证.md)
 - [歌单相关 API](#歌单相关-api)
 - [歌手相关 API](#歌手相关-api)
 - [VIP 与价目 API](#vip-与价目-api)
@@ -69,208 +68,11 @@ Accept-Language: zh-CN,zh;q=0.9
 
 ## 用户相关 API
 
-> **账号与 Token 权威源：** 本节的注册、登录、邮箱验证码、找回密码与改密的请求路径和字段保持不变，但校验、账号存储、用户 Token、头像签发、校验与吊销均由 NekoMusic 后端转发给 NekoAuth 完成。NekoMusic 本地不再保存用户密码、用户 Token、用户昵称或独立头像，只保存 NekoAuth `sub` 对应的 `auth_user_id`、邮箱快照和 VIP；昵称与头像在展示、搜索和通知场景中通过 NekoAuth 实时解析。旧客户端无需改成 OAuth 流程，也不需要获取 NekoAuth 的 client secret；登录响应中的 `token` 字段已改为 NekoAuth access token。
+> **账号与 Token 权威源：** 注册、登录、邮箱验证码、找回密码与改密全部由 NekoAuth 处理。NekoMusic 本地不保存用户密码、用户 Token、用户昵称或独立头像，只保存 NekoAuth `sub` 对应的 `auth_user_id`、邮箱快照和 VIP；昵称与头像在展示、搜索和通知场景中通过 NekoAuth 实时解析。
 >
-> 本次切换后，NekoMusic 旧版自行生成的随机 token 不再被接受，客户端需要重新登录一次。浏览器账号入口改为 NekoAuth OAuth 单点登录，详见 [NekoAuth 统一登录（服务端）](#24-nekoauth-统一登录服务端)。
+> 客户端必须通过 NekoAuth 登录页或扫码登录取得 Token，不得再调用已下线的邮箱密码注册、登录、验证码、找回密码或改密接口。
 >
 > NekoAuth 客户端必须由部署者自行登记为机密客户端，并包含 `account:bridge` scope；浏览器 OIDC 登录还要求 `openid profile email`，默认配置另含 `roles`。NekoMusic 在认证设置中填写 `oauth.issuer`、`oauth.client_id`、`oauth.client_secret`。NekoAuth 是昵称唯一权威源；注册与修改昵称都会写入 NekoAuth，NekoMusic 不保存昵称副本，展示时实时读取。
-
-### 1. 用户注册
-
-**端点:** `POST /api/user/register`
-
-**请求头:**
-```
-Content-Type: application/json
-```
-
-**请求体:**
-```json
-{
-  "nickname": "string",      // 昵称 (必填)
-  "password": "string",      // 密码 (必填)
-  "email": "string",         // 邮箱 (必填)
-  "verificationCode": "string"  // 邮箱验证码 (必填)
-}
-```
-
-**响应示例:**
-```json
-{
-  "success": true,
-  "message": "注册成功",
-  "data": {
-    "nickname": "昵称"
-  }
-}
-```
-
-**说明:**
-
-- `nickname` 长度 1-32，不能包含控制字符；注册时提交的昵称由 NekoAuth 保存并成为权威昵称。
-- 邮箱验证码为 6 位数字，有有效期；同一邮箱对同一验证码的错误尝试次数过多时，该验证码会立即失效，须重新调用发送验证码接口获取新码。
-- 收到「验证码错误或已过期」时请重新获取验证码后再试，不要对同一个验证码反复尝试。
-- 同一来源请求过于频繁时返回 HTTP `429`，`Retry-After` 为建议等待秒数，客户端应按该值退避后再试。
-
-### 2. 用户登录
-
-**端点:** `POST /api/user/login`
-
-**请求头:**
-```
-Content-Type: application/json
-```
-
-**请求体:**
-```json
-{
-  "email": "string",     // 邮箱
-  "password": "string"   // 密码
-}
-```
-
-**响应示例:**
-```json
-{
-  "success": true,
-  "message": "登录成功",
-  "data": {
-    "user": {
-      "id": 1,
-      "nickname": "昵称",
-      "email": "email@example.com",
-      "createdAt": "2024-01-01T00:00:00",
-      "isVip": false,
-      "vipExpiresAt": null
-    },
-    "token": "<NekoAuth access token>"
-  }
-}
-```
-
-**状态码:**
-
-| 状态码 | 含义 |
-|--------|------|
-| `200` | 请求已被处理；登录成功为 `success:true`，邮箱或密码错误为 `success:false` |
-| `400` | 邮箱或密码为空，或密码长度不在 6–30 位 |
-| `429` | 服务端暂时拒绝该次尝试（登录失败次数过多或同一来源请求过于频繁）；`Retry-After` 为建议等待秒数 |
-| `500` | 服务器内部错误 |
-
-**说明:**
-
-- 邮箱不存在与密码错误返回同一文案，客户端不应据此判断账号是否存在；`429` 对存在的邮箱与不存在的邮箱同样一致。
-- 客户端遇到 `429` 时应按 `Retry-After` 退避后再重试，不要立即重试或并发重试。
-
-### 3. 发送邮箱验证码
-
-用于**注册**前向邮箱发送数字验证码。须先完成滑块校验并取得 `captchaPassToken`（详见专项文档）。
-
-**专项文档（推荐）：** [API-滑块与人机验证.md](API-滑块与人机验证.md)（含 `GET /api/captcha/slider`、`POST /api/captcha/slider/verify` 与本接口的完整字段与流程说明）
-
-调用 `POST /api/captcha/slider/verify` 时，客户端除 `captchaToken` 与 `captchaOffsetX` 外，还需提交本次拖动产生的 `dragTrace` 轨迹采样；字段定义见专项文档。
-
-**端点:** `POST /api/user/send-verification`
-
-**请求头:**
-```
-Content-Type: application/json
-```
-
-**请求体:**
-```json
-{
-  "email": "string",
-  "nickname": "string",
-  "captchaPassToken": "string"
-}
-```
-
-| 字段 | 必填 | 说明 |
-|------|------|------|
-| `email` | 是 | 接收验证码的邮箱 |
-| `nickname` | 否 | 展示名等，缺省可由服务端按「用户」处理 |
-| `captchaPassToken` | 是 | 调用 `POST /api/captcha/slider/verify` 成功后返回的一次性通行令牌 |
-
-**响应示例:**
-```json
-{
-  "success": true,
-  "message": "验证码已发送至您的邮箱",
-  "data": null
-}
-```
-
-未通过人机验证或令牌无效时，`success` 为 `false`，`message` 会说明原因（如须先完成滑动拼图、令牌已失效等）。
-
-**状态码:**
-
-| 状态码 | 含义 |
-|--------|------|
-| `200` | 请求已被处理；是否真正发信以 `success` 为准 |
-| `429` | 发信过于频繁（同一来源请求过快，或同一收件邮箱冷却中），`Retry-After` 为建议等待秒数 |
-
-**说明:**
-
-- 同一收件邮箱有发信冷却，同一来源 IP 亦有发信与请求上限；触发任一限制都返回 `429`，客户端应按 `Retry-After` 退避后再试。
-
-### 4. 发送重置密码验证码
-
-**端点:** `POST /api/user/send-reset-code`
-
-**请求头:**
-```
-Content-Type: application/json
-```
-
-**请求体:**
-```json
-{
-  "email": "string"  // 注册邮箱（必填）
-}
-```
-
-**响应示例（成功）:**
-```json
-{
-  "success": true,
-  "message": "如果该邮箱已注册，我们已发送重置密码验证码，请查收邮件",
-  "data": null
-}
-```
-
-**说明:**
-
-- **无论邮箱是否注册，响应完全一致**（状态码、结构、文案均相同）：未注册邮箱不会收到任何邮件，但客户端拿到的回应与已注册邮箱没有区别。客户端不要依赖「该邮箱未注册」这类提示，也不要据此判断账号是否存在。
-- 验证码逻辑与注册验证码相同，通过邮件发送；验证码有效期与错误次数限制同注册流程。
-- 请求过于频繁时返回 HTTP `429`，`Retry-After` 为建议等待秒数，客户端应据此退避后重试。
-
-### 5. 重置密码
-
-**端点:** `POST /api/user/reset-password`
-
-**请求头:**
-```
-Content-Type: application/json
-```
-
-**请求体:**
-```json
-{
-  "email": "string",       // 邮箱（必填）
-  "code": "string",        // 邮件验证码（必填）
-  "newPassword": "string"  // 新密码（必填，6–30 位）
-}
-```
-
-**响应示例（成功）:**
-```json
-{
-  "success": true,
-  "message": "密码重置成功，请使用新密码登录",
-  "data": null
-}
-```
 
 ### 6. 获取用户头像
 
@@ -733,55 +535,6 @@ formData.append('coverFile', coverFileObject); // 可选
 formData.append('lyricsFile', lyricsFileObject); // 可选
 
 uploadMusic(formData);
-```
-
-### 17. 修改用户密码
-
-**端点:** `POST /api/user/password/change`
-
-**请求头:**
-```
-Authorization: Bearer <token>
-Content-Type: application/json
-```
-
-**请求体:**
-```json
-{
-  "oldPassword": "string",  // 原密码（必填）
-  "newPassword": "string"   // 新密码（必填，长度不能少于6位）
-}
-```
-
-**响应示例（成功）:**
-```json
-{
-  "success": true,
-  "message": "密码修改成功"
-}
-```
-
-**响应示例（失败）:**
-```json
-{
-  "error": "原密码错误"
-}
-```
-
-或
-
-```json
-{
-  "error": "新密码长度不能少于6位"
-}
-```
-
-或
-
-```json
-{
-  "error": "新密码不能与原密码相同"
-}
 ```
 
 ### 18. 修改用户昵称
@@ -1373,8 +1126,8 @@ Token 与用户资料。
 
 ### 24. NekoAuth 统一登录（服务端）
 
-本节是由 NekoMusic 服务端发起的 OpenID Connect 授权码流程（机密客户端，PKCE S256）。它不修改旧客户端使用的
-`/api/user/*` 路径与字段；登录响应里的 `token` 已是 NekoAuth 签发的 access token，原邮箱密码登录与扫码登录继续可用。Web、Android 与 PC 新版本使用本节端点完成统一登录与注册；旧客户端仍可使用邮箱密码兼容接口。
+本节是由 NekoMusic 服务端发起的 OpenID Connect 授权码流程（机密客户端，PKCE S256）。
+Web、Android 与 PC 都通过本节端点完成统一登录与注册；邮箱密码登录、注册、验证码和找回密码兼容接口已经下线。
 
 **昵称边界：** NekoAuth 是昵称唯一权威源。NekoMusic 的 MySQL 不保存昵称列，登录、SSO、资料页、
 评论、通知、歌单、用户搜索与后台展示都读取 NekoAuth 返回的当前昵称。NekoMusic 的昵称修改接口只写
@@ -1545,8 +1298,7 @@ Content-Type: application/json
 **说明:**
 
 - handoff 120 秒内有效，且只能成功领取一次；刷新完成页或重复提交会返回 `410`。
-- 领取到的 token 与旧 `/api/user/login` 返回的 `token` 语义相同，后续继续放在
-  `Authorization: Bearer <token>` 或旧接口约定的裸 token 位置。
+- 领取到的 token 后续放在 `Authorization: Bearer <token>` 请求头中。
 - 响应使用 `Cache-Control: private, no-store`，token 不会写回 URL。
 
 **状态码:**
@@ -3432,22 +3184,21 @@ importPlaylist(neteaseUrl);
 
 ## 前端集成示例
 
-### 用户登录
+### NekoAuth 登录入口
 
 ```javascript
-async function login(email, password) {
-  const response = await fetch('https://music.nekocore.cn/api/user/login', {
+async function openLogin(returnTo = location.pathname) {
+  const response = await fetch('https://music.nekocore.cn/api/user/sso/login-entry', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ returnTo })
   });
-  
+
   const data = await response.json();
-  if (data.success) {
-    localStorage.setItem('userToken', data.data.token);
-    localStorage.setItem('userInfo', JSON.stringify(data.data.user));
+  if (data.success && data.data?.url) {
+    location.assign(data.data.url);
   }
   return data;
 }
@@ -3825,34 +3576,6 @@ async function removeMusicFromPlaylist(playlistId, musicIds) {
 }
 ```
 
-### 修改用户密码
-
-```javascript
-async function changePassword(oldPassword, newPassword) {
-  const token = localStorage.getItem('userToken');
-  
-  const response = await fetch('https://music.nekocore.cn/api/user/password/change', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      oldPassword: oldPassword,
-      newPassword: newPassword
-    })
-  });
-  
-  const data = await response.json();
-  if (data.success) {
-    alert('密码修改成功！');
-  } else {
-    alert('密码修改失败：' + data.error);
-  }
-  return data;
-}
-```
-
 ### 修改用户昵称
 
 ```javascript
@@ -4041,7 +3764,6 @@ async function getFavoritePlaylistMusic(playlistId) {
    - `GET /api/vip/pricing` 公开读取价目表（无需登录）。
    - `POST /api/vip/pay/create` 需要登录，用于根据 `pricingId` 发起 VIP 购买并返回收银台地址或二维码。
 9. **忘记密码:**
-   - 旧客户端仍可使用 `POST /api/user/send-reset-code` 与 `POST /api/user/reset-password`，后端会代理到 NekoAuth。
    - 浏览器入口通过 `POST /api/user/sso/password-reset-url` 获取 NekoAuth 找回密码地址，由 NekoAuth 完成人机验证、邮箱验证码、新密码设置与 token 失效。
 
 10. **分享视频渲染:**
