@@ -72,7 +72,7 @@ Accept-Language: zh-CN,zh;q=0.9
 >
 > 客户端必须通过 NekoAuth 登录页或扫码登录取得 Token，不得再调用已下线的邮箱密码注册、登录、验证码、找回密码或改密接口。
 >
-> NekoAuth 客户端必须由部署者自行登记为机密客户端，OIDC 登录要求 `openid profile email`，默认配置另含 `roles`。NekoMusic 在认证设置中填写 `oauth.issuer`、`oauth.client_id`、`oauth.client_secret`。NekoAuth 是昵称唯一权威源；注册与修改昵称都会写入 NekoAuth，NekoMusic 不保存昵称副本，展示时实时读取。
+> Web 使用 NekoAuth 写入的第一方父域共享会话直接恢复 NekoMusic 登录态，不使用 OIDC 授权码静默登录；Android 与 PC 等原生客户端仍使用服务端 OIDC 授权流程。NekoAuth 是昵称唯一权威源；注册与修改昵称都会写入 NekoAuth，NekoMusic 不保存昵称副本，展示时实时读取。
 
 ### 6. 获取用户头像
 
@@ -970,39 +970,41 @@ Content-Type: application/json
 Authorization: Bearer <token>
 ```
 
-无请求体。调用后该 access token 立即失效。需要同时退出 Auth 浏览器会话时，客户端再调用
-`POST /api/user/sso/logout-url` 并导航到返回的标准 OIDC 注销地址。客户端应同时清除本地保存的
-Token、ID Token 与用户资料。
+Web 浏览器调用时还应允许携带同站 Cookie。无请求体。调用后该 access token 立即失效；Web 共享会话也会同步撤销 NekoAuth 浏览器会话，
+并清理父域共享 Cookie，使 Auth 与 NekoMusic 的第一方子域一起退出。客户端应同时清除本地保存的
+Token 与用户资料，并在跨域请求封装中允许携带 Cookie。
 
 接口是幂等的：Token 已失效、或同一 Token 重复调用，都返回成功。客户端可以先调用本接口再清本地状态；
 即使请求失败也应继续完成本地登出，不要因为登出请求失败而把用户留在已登录界面。
+Web 本地 Token 已过期时仍可凭当前 NekoAuth 共享会话完成退出。
 
 **响应示例（成功）:**
 ```json
 { "success": true, "message": "已退出登录" }
 ```
 
-**响应示例（未携带 Token）:**
+**响应示例（没有任何登录凭据）:**
 ```json
 { "success": false, "message": "请先登录" }
 ```
 
-**状态码:** `200` 成功（含幂等重复调用）；`401` 未携带 Token。
+**状态码:** `200` 成功（含幂等重复调用）；`401` 未携带 Token 且没有可撤销的 Web 登录会话。
 
 ---
 
 ### 24. NekoAuth 统一登录（服务端）
 
-本节是由 NekoMusic 服务端发起的 OpenID Connect 授权码流程（机密客户端，PKCE S256）。
-Web、Android 与 PC 都通过本节端点完成统一登录与注册；邮箱密码登录、注册、验证码和找回密码兼容接口已经下线。
+Web、Android 与 PC 都通过 NekoAuth 完成统一登录与注册；邮箱密码登录、注册、验证码和找回密码兼容接口已经下线。
+Web 只使用父域共享会话，不使用 OIDC 授权码；原生客户端使用由 NekoMusic 服务端发起的
+OpenID Connect 授权码流程（机密客户端，PKCE S256）。
 
 **昵称边界：** NekoAuth 是昵称唯一权威源。NekoMusic 的 MySQL 不保存昵称列，登录、SSO、资料页、
 评论、通知、歌单、用户搜索与后台展示都读取 NekoAuth 返回的当前昵称。NekoMusic 的昵称修改接口只写
 NekoAuth，不维护任何服务端昵称副本。
 
-#### 24.1 OIDC 发起登录
+#### 24.1 Web 登录入口（无需登录）
 
-**端点:** `POST /api/user/sso/start`
+**端点:** `POST /api/user/sso/login-entry`
 
 **请求体:**
 
@@ -1013,89 +1015,99 @@ NekoAuth，不维护任何服务端昵称副本。
 **响应:**
 
 ```json
-{ "success": true, "data": { "url": "https://auth.nekocore.cn/oauth2/authorize?..." } }
+{ "success": true, "data": { "url": "https://auth.nekocore.cn/login?return_to=..." } }
 ```
 
 **请求头:** 无需登录。
 
 | 字段 | 必填 | 说明 |
 | --- | --- | --- |
-| `client` | 否 | 登录客户端类型：`web`、`android` 或 `pc`，默认 `web`；决定回调后使用站内完成页还是 App 深链 |
-| `returnTo` | 否 | 登录成功后的站内相对路径，必须以单个 `/` 开头；默认 `/`。服务端会把它写入一次性 state，回调时不再接受外部传入的跳转地址。 |
-| `silent` | 否 | 为 `true` 时使用 `prompt=none`，仅复用现有 Auth 浏览器会话，不展示登录表单 |
+| `client` | 否 | 必须为 `web`；用于标识 Web 第一方登录入口 |
+| `returnTo` | 否 | 登录成功后的站内相对路径，必须以单个 `/` 开头；默认 `/`。 |
 
-前端拿到 `url` 后直接导航到 NekoAuth。授权地址和一次性 state 由 NekoMusic 后端生成；授权请求包含
-OIDC nonce 与 PKCE S256 challenge。NekoAuth 根地址、客户端 ID、回调地址与 scope 由管理员在
-「系统设置 → NekoAuth 登录」中维护，不写死在客户端。
-
-Web、Android 与 PC 都通过标准 OAuth 授权码流程登录。子域存在 `nekoauth_session_hint` 时，
-前端可发起一次 `silent=true` 的静默授权；该提示只表示浏览器可能持有 Auth 会话，不包含身份凭据。
+前端拿到 `url` 后直接导航到 NekoAuth 登录页。登录成功后，NekoAuth 会在
+`nekocore.cn` 父域写入共享会话，随后返回 `returnTo` 指定的 NekoMusic 页面。
 
 **状态码:**
 
-- `400`: `return_to` 不是合法站内相对路径
+- `200`: 成功返回 NekoAuth 登录地址
+- `400`: `returnTo` 不是合法站内相对路径
+- `429`: 登录入口请求过于频繁
 - `503`: NekoAuth 登录未启用或配置不完整
 
-#### 24.2 授权回调
+#### 24.2 同步 Web 登录态（无需登录）
 
-**端点:** `GET /sso/nekocore/callback`
+**端点:** `POST /api/user/sso/shared-session`
 
-**请求头:** 无需登录。该地址必须与 NekoAuth 应用中登记的回调地址完全一致。
+**请求头:** 无需登录；浏览器必须允许携带 NekoAuth 写入的第一方 Cookie。
 
-旧地址 `GET /oauth/nekocore/callback` 继续作为兼容别名。
+无请求体。客户端在应用启动、切换回前台或本地没有 NekoMusic Token 时调用。
 
-升级已有部署时，应同时更新 NekoAuth OAuth 应用登记的回调地址与 `oauth.redirect_uri`；只改一端会因
-回调地址不一致导致授权失败。
+**响应示例（成功）:**
 
-**查询参数:**
+```json
+{
+  "success": true,
+  "message": "登录成功",
+  "data": {
+    "token": "<NekoMusic session token>",
+    "returnTo": "/",
+    "user": {
+      "id": 1,
+      "nickname": "昵称",
+      "email": "email@example.com",
+      "createdAt": "2024-01-01T00:00:00",
+      "isVip": false,
+      "vipExpiresAt": null
+    }
+  }
+}
+```
 
-| 参数 | 必填 | 说明 |
-| --- | --- | --- |
-| `code` | 是 | NekoAuth 返回的一次性授权码 |
-| `state` | 是 | 发起登录时生成的一次性 state，只能消费一次，10 分钟内有效 |
-| `iss` | 否 | NekoAuth 返回的颁发者；存在时必须与配置的 `oauth.issuer` 一致 |
-
-服务端通过 OIDC 发现文档取得端点，使用 HTTP Basic、授权码和 PKCE `code_verifier` 交换短期
-access token 与 ID Token。ID Token 必须通过 NekoAuth JWKS 验签，并校验 `iss`、`aud`、`azp`、
-`nonce`、`at_hash` 与 UserInfo 的 `sub` 一致。随后读取 UserInfo 的 `sub` 与 `email`，按 `sub` 查找或创建
-本地业务资料，并把同一枚 NekoAuth access token 放入一次性 handoff。邮箱验证状态由 NekoAuth 管理，
-不作为 NekoMusic 登录门槛。
-回调成功时不会在响应体或 URL 中返回用户 token，而是跳转到前端完成页并携带一次性 handoff。
-
-**响应（成功）:**
-
-- `client=web`：`302` 跳转到 `/sso/complete?handoff=<一次性交接>`。
-- `client=android` 或 `pc`：`302` 跳转到
-  `/sso/native-complete?client=<client>&handoff=<一次性交接>`。该站内 HTTPS 页面随后打开
-  `nekomusic://sso/complete?handoff=<一次性交接>`；若浏览器阻止自动跳转，页面会提供“打开 NekoMusic”按钮。
-
-Android / PC 收到深链后必须调用 `POST /api/user/sso/claim` 兑换 token；深链中只有一次性 handoff，
-不得携带 access token。`client` 类型由发起登录时写入 state，回调参数不能覆盖。
+客户端应使用 `credentials: include`，并把响应中的 Token 写入本地会话存储。
+该 Token 会随 NekoAuth 父域共享会话失效；当接口返回 `401` 时应清除本地登录态。
 
 **响应示例（失败）:**
 
 ```json
-{
-  "success": false,
-  "error": "state_invalid",
-  "message": "登录会话无效或已过期"
-}
+{ "success": false, "message": "未找到共享登录会话" }
 ```
 
 **状态码:**
 
-- `302`: 授权成功，跳转到前端完成页
-- `400`: 缺少授权码、state 无效或已过期
-- `403`: 用户取消授权或账号关联失败
-- `502`: NekoAuth 令牌交换、ID Token 校验或 UserInfo 获取失败
-- `503`: NekoAuth 登录未启用、配置不完整或暂时不可用
+- `200`: 同步成功
+- `401`: 浏览器没有有效的 NekoAuth 共享登录会话
 
-#### 24.3 完成单点登录并领取 Token
+#### 24.3 原生客户端 OIDC 发起登录
 
-**页面:** `GET /sso/complete`
+**端点:** `POST /api/user/sso/start`
 
-前端收到回调后打开该页面。页面会立即读取并清除 URL 中的 `handoff`，然后调用下面的领取接口；
-成功后把 token 写入 `localStorage.userToken`，并按 `returnTo` 返回登录前页面。
+**请求体:**
+
+```json
+{ "client": "android", "returnTo": "/" }
+```
+
+**请求头:** 无需登录。
+
+`client` 仅支持 `android` 或 `pc`。服务端通过 OIDC 发现文档生成授权地址；
+授权请求使用一次性 state、nonce 与 PKCE S256。Web 客户端不得调用此端点。
+
+**状态码:** `200` 成功；`400` 参数不合法，或 Web 客户端尝试使用 OIDC 授权；`429` 请求过于频繁；
+`503` NekoAuth 登录未启用或配置不完整。
+
+#### 24.4 原生客户端授权回调
+
+**端点:** `GET /sso/nekocore/callback`
+
+**请求头:** 无需登录。该地址由 NekoAuth 应用登记并仅供原生客户端授权流程使用。
+
+旧地址 `GET /oauth/nekocore/callback` 继续作为兼容别名。
+
+成功时跳转到站内 HTTPS 完成页；Android / PC 完成页随后打开
+`nekomusic://sso/complete?handoff=<一次性交接>`。深链中不得携带 access token。
+
+#### 24.5 原生客户端领取 Token
 
 **端点:** `POST /api/user/sso/claim`
 
@@ -1147,7 +1159,7 @@ Content-Type: application/json
 - `502`: NekoAuth 暂时不可用
 - `503`: NekoAuth 登录未启用或配置不完整
 
-#### 24.4 NekoAuth 账号页面
+#### 24.6 NekoAuth 账号页面
 
 **端点:** `GET /api/user/sso/portal-url?target=account|register|forgot-password`
 
@@ -1170,7 +1182,7 @@ Web 在当前浏览器中打开该地址，Android 在应用内 WebView 中打�
 
 **状态码:** `200` 成功；`400` 不支持的目标；`429` 请求过于频繁；`503` NekoAuth 地址未配置。
 
-#### 24.5 找回密码入口
+#### 24.7 找回密码入口
 
 **端点:** `POST /api/user/sso/password-reset-url`
 
@@ -1181,9 +1193,11 @@ Web 在当前浏览器中打开该地址，Android 在应用内 WebView 中打�
 
 **状态码:** `200` 成功；`503` NekoAuth 根地址未配置或暂时不可用。
 
-#### 24.6 同步退出 NekoAuth
+#### 24.8 原生客户端同步退出 NekoAuth
 
 **端点:** `POST /api/user/sso/logout-url`
+
+**请求头:** 无需登录；仅原生客户端使用。
 
 **请求体:**
 
@@ -1191,7 +1205,7 @@ Web 在当前浏览器中打开该地址，Android 在应用内 WebView 中打�
 { "idToken": "<登录领取的 ID Token>" }
 ```
 
-**响应:**
+**响应示例（成功）:**
 
 ```json
 {
@@ -1202,8 +1216,8 @@ Web 在当前浏览器中打开该地址，Android 在应用内 WebView 中打�
 }
 ```
 
-客户端先调用 `/api/user/logout` 吊销当前 access token，再导航到该标准 OIDC 注销地址。Auth 会撤销当前
-浏览器会话族及其关联令牌。客户端随后按 `GET /api/user/info` 的 `401` 清除本地登录态。
+原生客户端先调用 `POST /api/user/logout`，再导航到返回的 NekoAuth 注销地址。Web 客户端不使用本端点，
+其登出由 `POST /api/user/logout` 直接完成。
 
 **状态码:** `200` 成功；`400` 缺少或非法的 ID Token；`503` NekoAuth 登录未启用或配置不完整。
 
@@ -3011,12 +3025,12 @@ importPlaylist(neteaseUrl);
 
 ```javascript
 async function openLogin(returnTo = location.pathname) {
-  const response = await fetch('https://music.nekocore.cn/api/user/sso/start', {
+  const response = await fetch('https://music.nekocore.cn/api/user/sso/login-entry', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ client: 'web', returnTo, silent: false })
+    body: JSON.stringify({ client: 'web', returnTo })
   });
 
   const data = await response.json();
