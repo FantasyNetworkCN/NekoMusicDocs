@@ -1408,6 +1408,8 @@ OIDC nonce 与 PKCE S256 challenge。NekoAuth 根地址、客户端 ID、回调�
 
 Web 端在 NekoAuth 已登录且本地没有 NekoMusic token 时，可使用 `silent=true` 自动尝试无感登录。
 客户端应避免对同一页面重复发起静默授权；静默失败不是错误弹窗场景，应直接按游客态继续加载。
+同一父域下的第一方 Web 客户端首次静默授权时，NekoAuth 可自动建立同意记录；其他来源仍会返回
+`consent_required`，客户端应停止自动重试。
 
 **状态码:**
 
@@ -1497,6 +1499,7 @@ Content-Type: application/json
   "message": "登录成功",
   "data": {
     "token": "<NekoAuth access token>",
+    "idToken": "<OIDC ID Token，仅用于全局登出提示>",
     "returnTo": "/favorites",
     "user": {
       "id": 1,
@@ -1515,6 +1518,8 @@ Content-Type: application/json
 - handoff 120 秒内有效，且只能成功领取一次；刷新完成页或重复提交会返回 `410`。
 - 领取到的 token 与旧 `/api/user/login` 返回的 `token` 语义相同，后续继续放在
   `Authorization: Bearer <token>` 或旧接口约定的裸 token 位置。
+- `idToken` 不是业务 API 凭据，只能用于 NekoAuth RP-Initiated Logout 的 `id_token_hint`；客户端应
+  与业务 token 分开保存，禁止放进 URL、查询串或分享链接。
 - 响应使用 `Cache-Control: private, no-store`，token 不会写回 URL。
 
 **状态码:**
@@ -1559,6 +1564,42 @@ Web 在当前浏览器中打开该地址，Android 在应用内 WebView 中打�
 每日上限、新密码校验与旧 token 失效全部由 NekoAuth 处理。
 
 **状态码:** `200` 成功；`503` NekoAuth 根地址未配置或暂时不可用。
+
+#### 24.6 全局登出配置
+
+**端点:** `GET /api/user/sso/logout-config`
+
+**认证:** 无需登录。
+
+**响应示例（成功）:**
+
+```json
+{
+  "success": true,
+  "message": "登出配置已加载",
+  "data": {
+    "endpoint": "https://auth.nekocore.cn/oauth2/logout",
+    "clientId": "registered-client-id",
+    "postLogoutRedirectUri": "https://music.nekocore.cn/"
+  }
+}
+```
+
+Web 客户端退出时，先吊销当前 NekoMusic access token，再向 `endpoint` 提交 POST 表单：
+
+| 字段 | 必填 | 说明 |
+| --- | --- | --- |
+| `id_token_hint` | 是 | 登录领取接口返回的 `idToken`；应放在表单体中，不得放入 URL |
+| `client_id` | 是 | 使用响应中的 `clientId` |
+| `post_logout_redirect_uri` | 是 | 使用响应中的 `postLogoutRedirectUri`，并必须在 NekoAuth 客户端中登记 |
+
+NekoAuth 会注销当前浏览器主会话、清除父域登录提示并跳回 NekoMusic。此后所有子域都不能再通过
+`prompt=none` 自动恢复登录，直到用户重新登录 NekoAuth。
+
+**状态码:**
+
+- `200`: 配置读取成功
+- `503`: NekoAuth 登录未启用、配置不完整或暂时不可用
 
 ---
 
