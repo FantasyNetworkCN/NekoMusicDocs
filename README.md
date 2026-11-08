@@ -2788,8 +2788,8 @@ async function downloadVideoClip(jobId, filename = 'clip.mp4') {
 
 用**外部歌单 ID** 发起导入，由后端完成站外匹配，并把结果加入你指定的站内歌单，进度通过 **SSE** 实时返回。
 
-- 支持音源：网易云音乐、QQ 音乐、酷狗音乐。
-- 无论哪个平台（`qq` / `netease` / `kugou`），导入请求都**必须携带用户令牌**。
+- 支持音源：网易云音乐、QQ 音乐、酷狗音乐、汽水音乐，以及落雪音乐导出的 `.lxmc` 歌单文件。
+- 无论使用哪种渠道（`qq` / `netease` / `kugou` / `qishui` / `lxmc`），导入请求都**必须携带用户令牌**。
 - 必须指定导入目标：已有站内歌单 `targetPlaylistId`，或新建歌单 `targetPlaylistName`（二选一）。
 - **导入后目标歌单的曲目顺序与来源歌单保持一致**：命中的曲目按来源顺序追加到目标歌单末尾
   （导入到已有歌单时排在原有曲目之后）；匹配或下载失败的曲目会被跳过，其余曲目相对顺序不变。
@@ -2966,7 +2966,118 @@ Authorization: Bearer <token>
 **响应：** 歌单数据放在 `data` 字段中，结构为 `{code, playlist_id, name, owner, cover, songnum, songlist[]}`；`duration` 为毫秒。`playlist_id` 缺失或非法返回 `400`，汽水上游异常或歌单不可访问返回 `502`。
 
 
-### 7. SSE 事件
+### 7. 落雪歌单文件解析
+
+`POST /loser/lxmc/inspect`
+
+上传落雪音乐导出的 `.lxmc` 文件，返回文件中包含的歌单摘要。该接口只解析并返回元数据，不会创建歌单或开始导入。
+
+**请求头:**
+```
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+**请求参数:**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `file` | 文件 | 是 | 落雪音乐导出的 `.lxmc` 文件，最大 4 MiB |
+
+**响应示例（成功）:**
+```json
+{
+  "success": true,
+  "message": "落雪歌单解析成功",
+  "data": {
+    "totalTrackCount": 3,
+    "playlists": [
+      {
+        "id": "default",
+        "name": "试听列表",
+        "trackCount": 2,
+        "sources": {
+          "wy": 1,
+          "kg": 1
+        }
+      },
+      {
+        "id": "favorite",
+        "name": "我的收藏",
+        "trackCount": 1,
+        "sources": {
+          "tx": 1
+        }
+      }
+    ]
+  }
+}
+```
+
+**状态码:**
+- `200`：解析成功。
+- `400`：缺少文件、文件不是有效的 `.lxmc` 文件。
+- `401`：未登录或令牌无效。
+- `413`：上传文件过大。
+- `415`：未使用 `multipart/form-data`。
+
+### 8. 落雪歌单导入
+
+`POST /loser/lxmc/pull`
+
+上传 `.lxmc` 文件并选择其中一个歌单开始后台匹配导入。开始导入前发生错误时返回普通 JSON；成功开始后响应为 `text/event-stream`，事件结构与「SSE 事件」一致。
+
+**请求头:**
+```
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+**请求参数:**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `file` | 文件 | 是 | 落雪音乐导出的 `.lxmc` 文件，最大 4 MiB |
+| `playlistId` | 字符串 | 文件仅含一个歌单时可选 | `inspect` 返回的文件内歌单 `id` |
+| `targetPlaylistId` | 整数 | 二选一 | 导入到已有站内歌单，必须是本人的歌单，否则 `403` |
+| `targetPlaylistName` | 字符串 | 二选一 | 新建站内歌单并导入，名称不超过 255 字且不含违禁词 |
+
+**响应示例（成功，SSE）:**
+```
+event: start
+data: {"source":"lxmc","total":2,"targetPlaylistId":12,"targetPlaylistCreated":false}
+
+event: track
+data: {"index":0,"total":2,"source":"lxmc","sourceId":"123","title":"第一首","artist":"歌手甲","status":"matching","musicId":null,"fileUrl":null,"playlistAdded":false,"message":null}
+
+event: done
+data: {"total":2,"imported":1,"existed":1,"failed":0}
+```
+
+**响应示例（失败）:**
+```json
+{
+  "success": false,
+  "message": "文件包含多个歌单，请先选择要导入的歌单"
+}
+```
+
+**状态码:**
+- `200`：开始导入，随后通过 SSE 返回进度与结果。
+- `400`：文件无效、缺少文件、文件包含多个歌单但未提供 `playlistId`，或未指定导入目标。
+- `401`：未登录或令牌无效。
+- `403`：目标歌单不属于当前用户。
+- `404`：指定的文件内歌单不存在。
+- `413`：上传文件过大。
+- `415`：未使用 `multipart/form-data`。
+
+**说明:**
+
+- 文件内可能包含多个歌单；网页端先调用 `inspect` 让用户选择，再上传同一文件调用 `pull`。
+- 曲目按歌名与歌手先匹配站内曲库，未命中时沿用其它外部歌单导入的补全规则；失败曲目不会中断其余曲目。
+- 导入结束（成功或失败）后会给发起人写入一条 `playlist_import` 站内消息。
+
+### 9. SSE 事件
 
 响应 `Content-Type: text/event-stream`，连接后先发送注释帧 `: connected`，随后推送：
 
@@ -2978,7 +3089,7 @@ Authorization: Bearer <token>
 | `done` | `{total,imported,existed,failed}` |
 | `error` | `{message}` |
 
-- `source`：`netease`、`qq`、`kugou` 或 `qishui`；`sourceId`：网易云歌曲 ID、QQ 歌曲 `mid`、酷狗歌曲 `hash` 或汽水歌曲 ID。
+- `source`：`netease`、`qq`、`kugou`、`qishui` 或 `lxmc`；`sourceId`：网易云歌曲 ID、QQ 歌曲 `mid`、酷狗歌曲 `hash`、汽水歌曲 ID，或落雪文件内的原始来源 ID。
 - `targetPlaylistCreated`：目标歌单是否为本次新建。
 - `status`：`downloading`（下载中）、`matching`（站外匹配中）、`imported`（本次新入库）、`existed`（站内曲库已有该曲目，本次不重新下载，但同样会加入目标歌单）、`failed`（失败，见 `message`）。
 - `playlistAdded`：该曲目这次是否真的加进了目标歌单。`false` 表示它已经在目标歌单里（被跳过），失败曲目同为 `false`；判断「我的歌单里是不是本来就有这首」只看这个字段，不要看 `status`。
@@ -3032,7 +3143,7 @@ importPlaylist(neteaseUrl);
 // importPlaylist(kugouUrl);
 ```
 
-**说明**：上述导入接口（`/loser/{netease|qq|kugou|qishui}/pull`）必须携带用户令牌，且必须指定 `targetPlaylistId` 或 `targetPlaylistName`；站外匹配与下载全部在服务端完成。`source` 为 `kugou`、`qishui` 时曲目只有元数据，后端会先做站内匹配、再从网易云补全。
+**说明**：上述导入接口必须携带用户令牌，且必须指定 `targetPlaylistId` 或 `targetPlaylistName`；站外匹配与下载全部在服务端完成。`source` 为 `kugou`、`qishui` 或 `lxmc` 时曲目只有元数据，后端会先做站内匹配、再按歌名与歌手补全。
 
 ---
 
@@ -3675,7 +3786,8 @@ async function getFavoritePlaylistMusic(playlistId) {
    - 新增 API：`GET /api/user/favorite-playlists/{id}` - 获取收藏歌单内音乐（需要登录）
 
 12. **外部歌单导入:**
-   - 支持网易云、QQ、酷狗、汽水音乐四家音源的歌单导入，统一走 `/loser/{netease|qq|kugou|qishui}/pull`，进度通过 SSE 返回。
+   - 支持网易云、QQ、酷狗、汽水音乐四家音源的链接导入，以及落雪音乐 `.lxmc` 文件导入，进度统一通过 SSE 返回。
+   - 落雪文件先通过 `POST /loser/lxmc/inspect` 解析文件内歌单，再通过 `POST /loser/lxmc/pull` 导入选中歌单。
    - 全部需要登录（`Authorization` / `?token=`），且必须指定 `targetPlaylistId` 或 `targetPlaylistName`。
    - 酷狗 / 汽水仅提供元数据（歌名 / 歌手），入库前会先站内匹配、再从网易云补全，未命中曲目以 `status: failed` 回报。
    - 另提供 `GET /loser/kugou/getSongListDetail?listid=` 与 `GET|POST /loser/qishui/getSongListDetail?playlist_id=` 代理歌单详情（无需登录，仅元数据）。
