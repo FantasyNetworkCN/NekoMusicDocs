@@ -1775,6 +1775,81 @@ Content-Type: application/json
 - 移除音乐后会自动重新排序剩余音乐的 position（删除位置之后的 position - 1）；多首时按去重后的顺序逐首移除，与逐次调用单首移除效果一致
 - 移除成功后会自动更新歌单的 `musicCount` 字段
 
+### 10. 获取推荐歌单
+
+**端点:** `GET /api/playlists/recommended`
+
+**请求头（可选）:**
+```
+Authorization: <token>
+```
+
+未携带令牌时返回面向游客的热门精选；携带有效令牌时返回基于当前用户兴趣的个性化推荐。传入无效令牌会返回 `401`。
+
+**查询参数:**
+- `refresh`（可选）：`true` 或 `1` 时触发换一批，最多返回 5 个歌单
+
+**响应示例（成功）:**
+```json
+{
+  "success": true,
+  "message": "推荐歌单获取成功",
+  "generatedAt": "2026-11-08T10:30:00Z",
+  "personalized": true,
+  "count": 5,
+  "data": [
+    {
+      "rank": 1,
+      "id": 42,
+      "userId": 9,
+      "name": "深夜华语电台",
+      "description": "适合夜晚循环的华语歌单",
+      "musicCount": 36,
+      "source": "personalized",
+      "reason": "根据你的音乐口味推荐",
+      "exploration": false,
+      "creator": {
+        "id": 9,
+        "nickname": "Neko"
+      },
+      "coverUrls": [
+        "/api/music/cover/13751",
+        "/api/music/cover/13749",
+        "/api/music/cover/13740",
+        "/api/music/cover/13733"
+      ],
+      "firstMusicCover": "/api/music/cover/13751"
+    }
+  ]
+}
+```
+
+**响应示例（无效令牌）:**
+```json
+{
+  "success": false,
+  "message": "登录凭证无效"
+}
+```
+
+**字段说明:**
+- `personalized`: 本次是否为登录用户个性化推荐
+- `count`: 返回歌单数量；站内可用歌单不足时为 `0` 到 `5`
+- `source`: `personalized`（个性化）或 `popular`（游客热门）
+- `reason`: 可直接展示给用户的推荐理由
+- `exploration`: 是否为本次刷新引入的探索位
+- `coverUrls`: 最多 4 张曲目封面路径
+- `firstMusicCover`: 首张封面路径，可直接用于单图卡片
+
+**状态码:**
+- `200`：获取成功
+- `401`：携带了无效令牌
+- `503`：推荐服务暂不可用
+
+**说明:**
+- 接口每次请求实时生成推荐，响应使用 `Cache-Control: private, no-store`，不会返回服务端缓存结果。
+- 刷新会保留高置信推荐并更换部分探索位；客户端应使用 `cache: "no-store"` 重新请求。
+
 ---
 ## 歌单权限说明
 
@@ -1786,6 +1861,7 @@ Content-Type: application/json
 | 获取歌单详情 | 无需登录（任何用户都可以查看） |
 | 查看歌单列表 | 任何登录用户（只返回自己的歌单） |
 | 查看歌单内容 | 无需登录（任何用户都可以查看歌单中的音乐） |
+| 获取推荐歌单 | 无需登录；登录后返回个性化推荐 |
 | 创建歌单 | 任何登录用户 |
 | 更新歌单 | 只有歌单的创建者 |
 | 删除歌单 | 只有歌单的创建者 |
@@ -1883,12 +1959,15 @@ Content-Type: application/json
 
 **端点:** `POST /api/music/search`
 
-**无需登录**
+**无需登录；可选择性携带用户令牌**
 
 **请求头:**
 ```
 Content-Type: application/json
+Authorization: <token>        # 可选
 ```
+
+使用 `query` 模式搜索、携带有效用户令牌且搜索有站内结果时，服务端会将该次搜索关键词用于当前用户的站内个性化歌单推荐；不携带令牌时不会记录搜索画像。搜索画像的用途与保存期限见站内隐私政策。
 
 同一端点支持两种模式，**`query` 与 `items` 二选一**，不可同时提供。
 
