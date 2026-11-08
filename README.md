@@ -618,9 +618,11 @@ Authorization: Bearer <token>
 
 ---
 
-### 21. 扫码登录
+### 21. 扫码登录（客户端本机登录）
 
 PC 端展示二维码，手机端（NekoMusic App）扫码确认后，PC 端自动登录。二维码 180 秒内有效，登录令牌只能被领取一次。
+
+扫码登录建立的是**当前客户端自己的登录会话**，不会创建或注销 NekoAuth 浏览器会话，也不会影响 Web、其它手机或其它 PC 的登录状态。Android / PC 普通退出登录只调用 `POST /api/user/logout` 吊销当前客户端 Token；只有用户明确选择“退出所有设备”时才使用 NekoAuth 全局退出。
 
 **流程:**
 
@@ -639,9 +641,27 @@ nekomusic://qrlogin?sid=<sessionId>
 
 客户端解析出 `sid` 即可，无需识别其余部分。
 
+**客户端状态机:**
+
+```text
+pending → scanned → confirmed → 领取 token
+                  ↘ canceled
+pending / scanned → expired
+```
+
+`confirmed` 只表示手机端已同意，PC 端必须继续调用 21.3 才能完成登录。`canceled`、`expired` 或领取失败时，PC 端应停止状态流并提示用户重新生成二维码。
+
 #### 21.1 创建扫码会话（无需登录）
 
 **端点:** `POST /api/user/qrlogin/create`
+
+**请求头:**
+
+```
+Content-Type: application/json
+```
+
+无请求体。
 
 **响应示例:**
 ```json
@@ -704,6 +724,12 @@ data: {"status":"confirmed"}
 #### 21.3 领取登录令牌（无需登录）
 
 **端点:** `POST /api/user/qrlogin/claim`
+
+**请求头:**
+
+```
+Content-Type: application/json
+```
 
 **请求体:**
 ```json
