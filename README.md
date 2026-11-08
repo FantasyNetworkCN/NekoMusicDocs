@@ -2151,7 +2151,25 @@ Authorization: <token>        # 可选
     "updatedAt": "2024-01-02 12:00:00.0",
     "maxQuality": "sq",
     "favoriteCount": 12,
-    "lyrics": "[00:00.00]歌词内容"
+    "lyricsFormat": "neko-v1",
+    "lyrics": "[00:00.00]歌词内容",
+    "lyricsRich": {
+      "version": 1,
+      "lines": [
+        {
+          "startMs": 0,
+          "endMs": 2000,
+          "text": "歌词内容",
+          "translation": null,
+          "romanization": null,
+          "background": false,
+          "words": [
+            { "startMs": 0, "endMs": 1000, "text": "歌词" },
+            { "startMs": 1000, "endMs": 2000, "text": "内容" }
+          ]
+        }
+      ]
+    }
   }
 }
 ```
@@ -2161,7 +2179,15 @@ Authorization: <token>        # 可选
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `favoriteCount` | number | 收藏该曲目的用户数，无人收藏时为 `0` |
-| `lyrics` | string | LRC 格式歌词；没有歌词时为空字符串 |
+| `lyricsFormat` | string | 歌词存储格式；普通歌词为 `lrc`，含字级时间轴时为 `neko-v1` |
+| `lyrics` | string | 兼容用 LRC 歌词；没有歌词时为空字符串。`neko-v1` 会同时转换成该字段 |
+| `lyricsRich` | object \| null | `neko-v1` 字级歌词；普通 LRC 或无歌词时为 `null` |
+
+- `lyricsRich.lines[]`：按时间排序的歌词行，时间单位均为毫秒。
+- `startMs` / `endMs`：行起始和结束时间。
+- `text` / `translation` / `romanization`：原文、翻译、音译。
+- `background`：是否为背景和声行。
+- `words[]`：逐字/逐词片段，字段同为 `startMs`、`endMs`、`text`。
 
 **响应示例（失败/不存在）:**
 ```json
