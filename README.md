@@ -2188,6 +2188,7 @@ Authorization: <token>        # 可选
 - `text` / `translation` / `romanization`：原文、翻译、音译。
 - `background`：是否为背景和声行。
 - `words[]`：逐字/逐词片段，字段同为 `startMs`、`endMs`、`text`。
+- 正文去除首尾空白后仅为 `//` 的占位行不会出现在 `lyrics` 或 `lyricsRich.lines` 中。
 
 **响应示例（失败/不存在）:**
 ```json
