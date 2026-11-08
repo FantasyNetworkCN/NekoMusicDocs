@@ -970,9 +970,10 @@ Content-Type: application/json
 Authorization: Bearer <token>
 ```
 
-Web 浏览器调用时还应允许携带同站 Cookie。无请求体。调用后该 access token 立即失效；Web 共享会话也会同步撤销 NekoAuth 浏览器会话，
-并清理父域共享 Cookie，使 Auth 与 NekoMusic 的第一方子域一起退出。客户端应同时清除本地保存的
-Token 与用户资料，并在跨域请求封装中允许携带 Cookie。
+Web 浏览器调用时还应允许携带同站 Cookie。无请求体。调用后该 access token 立即失效。
+Web 共享会话还会撤销 NekoAuth 浏览器会话并清理父域共享 Cookie，使 Auth 与 NekoMusic 的第一方子域一起退出。
+Android / PC 等原生客户端调用本接口只退出当前客户端，不会注销 Web 或其它设备。
+客户端应同时清除本地保存的 Token 与用户资料；Web 请求封装必须允许携带 Cookie。
 
 接口是幂等的：Token 已失效、或同一 Token 重复调用，都返回成功。客户端可以先调用本接口再清本地状态；
 即使请求失败也应继续完成本地登出，不要因为登出请求失败而把用户留在已登录界面。
@@ -1193,7 +1194,7 @@ Web 在当前浏览器中打开该地址，Android 在应用内 WebView 中打�
 
 **状态码:** `200` 成功；`503` NekoAuth 根地址未配置或暂时不可用。
 
-#### 24.8 原生客户端同步退出 NekoAuth
+#### 24.8 显式全局退出 NekoAuth（可选）
 
 **端点:** `POST /api/user/sso/logout-url`
 
@@ -1216,8 +1217,9 @@ Web 在当前浏览器中打开该地址，Android 在应用内 WebView 中打�
 }
 ```
 
-原生客户端先调用 `POST /api/user/logout`，再导航到返回的 NekoAuth 注销地址。Web 客户端不使用本端点，
-其登出由 `POST /api/user/logout` 直接完成。
+该端点只用于用户明确选择“退出所有设备”的场景。普通客户端退出登录不得调用它，而应只调用
+`POST /api/user/logout` 吊销当前客户端的 Token；否则会注销同一 Auth 会话下的 Web 与其它设备。
+Web 客户端的普通登出同样由 `POST /api/user/logout` 直接完成，不导航本端点。
 
 **状态码:** `200` 成功；`400` 缺少或非法的 ID Token；`503` NekoAuth 登录未启用或配置不完整。
 
