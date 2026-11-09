@@ -2188,7 +2188,7 @@ Authorization: <token>        # 可选
 - `text` / `translation` / `romanization`：原文、翻译、罗马音。`language` 为“日语”时，服务端会在歌词写入或更新时为每条有效歌词行强制补全 `romanization`；客户端可直接展示，无需自行转换。
 - `background`：是否为背景和声行。
 - `words[]`：逐字/逐词片段，字段同为 `startMs`、`endMs`、`text`。
-- 正文去除首尾空白后仅为 `//` 的占位行不会出现在 `lyrics` 或 `lyricsRich.lines` 中。
+- 正文去除首尾空白后仅为 `//` 或 `null`（不区分大小写）的占位行不会出现在 `lyrics` 或 `lyricsRich.lines` 中。
 
 **响应示例（失败/不存在）:**
 ```json
