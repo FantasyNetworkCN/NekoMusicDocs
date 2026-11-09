@@ -2,7 +2,7 @@
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko歌姬计划 署名及源码链接！
 
-#### 更新时间 2026年11月8日
+#### 更新时间 2026年11月9日
 ## 概述
 
 Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -17,6 +17,7 @@ Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用�
 - [响应文案语言](#响应文案语言)
 - [用户相关 API](#用户相关-api)
 - [NekoAuth 统一登录（服务端）](#24-nekoauth-统一登录服务端)
+- [提交歌词报错](#25-提交歌词报错)
 - [歌单相关 API](#歌单相关-api)
 - [歌手相关 API](#歌手相关-api)
 - [VIP 与价目 API](#vip-与价目-api)
@@ -1248,6 +1249,59 @@ Web 在当前浏览器中打开该地址，Android 在应用内 WebView 中打�
 Web 客户端的普通登出同样由 `POST /api/user/logout` 直接完成，不导航本端点。
 
 **状态码:** `200` 成功；`400` 缺少或非法的 ID Token；`503` NekoAuth 登录未启用或配置不完整。
+
+### 25. 提交歌词报错
+
+**端点:** `POST /api/lyrics/reports`
+
+**请求头:**
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**请求体:**
+- `musicId`: 音乐 ID（必填）
+- `content`: `neko-v1` 歌词 JSON 的字符串形式（必填）
+- `note`: 补充说明（可选，最多 500 个字符）
+
+`content` 中的 `lines[]` 字段与 `GET /api/music/info/{id}` 返回的
+`lyricsRich.lines[]` 一致；客户端应序列化为字符串后提交：
+
+```json
+{
+  "musicId": 19422,
+  "content": "{\"version\":1,\"lines\":[{\"startMs\":0,\"endMs\":4000,\"text\":\"歌词内容\",\"translation\":\"翻译内容\",\"romanization\":null,\"background\":false,\"words\":[{\"startMs\":0,\"endMs\":1000,\"text\":\"歌词\"}]}]}",
+  "note": "修正了第二行歌词并补全逐字时间轴"
+}
+```
+
+**响应示例（成功）:**
+```json
+{
+  "success": true,
+  "message": "歌词报错已提交，等待管理员审核",
+  "data": {
+    "id": 12,
+    "status": "pending"
+  }
+}
+```
+
+**响应示例（已有待审核报错）:**
+```json
+{
+  "success": false,
+  "message": "你对这首歌已有待审核的歌词报错"
+}
+```
+
+**说明:**
+- 提交后不会立即修改正式歌词，必须经管理员审核通过。
+- 同一用户对同一歌曲同时只能存在一条待审核报错。
+- 可以修改原文、翻译，也可以补充或调整逐字/逐词时间片段。
+
+**状态码:** `200` 提交成功；`400` 参数或歌词格式无效；`401` 未登录；`404` 歌曲不存在；`409` 已有待审核报错；`500` 服务端错误。
 
 ---
 
