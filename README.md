@@ -2185,7 +2185,7 @@ Authorization: <token>        # 可选
 
 - `lyricsRich.lines[]`：按时间排序的歌词行，时间单位均为毫秒。
 - `startMs` / `endMs`：行起始和结束时间。
-- `text` / `translation` / `romanization`：原文、翻译、罗马音。`language` 为“日语”时，服务端会在歌词写入或更新时为每条有效歌词行强制补全 `romanization`；客户端可直接展示，无需自行转换。
+- `text` / `translation` / `romanization`：原文、翻译、罗马音。`language` 为“日语”时，服务端会离线生成纯拉丁罗马音，并按词以空格分隔；客户端可直接展示，无需自行转换。
 - `background`：是否为背景和声行。
 - `words[]`：逐字/逐词片段，字段同为 `startMs`、`endMs`、`text`。
 - 正文去除首尾空白后仅为 `//` 或 `null`（不区分大小写）的占位行不会出现在 `lyrics` 或 `lyricsRich.lines` 中。
