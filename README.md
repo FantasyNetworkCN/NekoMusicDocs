@@ -2397,6 +2397,108 @@ curl -sS -X POST 'https://music.nekocore.cn/api/music/recognize' \
 | `429` | 当前 IP 请求过于频繁，或识曲并发已满；可查看 `Retry-After` |
 | `503` | 声纹索引正在构建或识曲服务暂时不可用 |
 
+#### WebSocket 流式识曲
+
+WebSocket 方式用于实时上传麦克风 PCM 音频。客户端边录音边发送二进制音频帧，服务端在达到
+最短采样时长后持续尝试匹配；匹配成功会立即返回结果并关闭连接。该方式与上面的 HTTP
+接口相互独立，HTTP 接口仍可继续使用。
+
+**源站端点:** `ws://<源站域名>/api/music/recognize/ws`
+
+**请求头:** 无需登录；连接握手使用标准 WebSocket 请求头。源站支持普通 WS；
+若通过 CDN 对外提供 HTTPS 站点，客户端应连接 CDN 提供的 WebSocket 地址（通常为 `wss://`）；
+CDN 负责 TLS 终止，再以普通 WS Upgrade 转发到源站。
+
+**控制帧:**
+
+连接建立后，服务端先发送：
+
+```json
+{
+  "type": "ready"
+}
+```
+
+客户端随后必须发送一个 JSON 文本帧：
+
+```json
+{
+  "type": "start",
+  "format": "pcm_s16le",
+  "sampleRate": 16000,
+  "channels": 1
+}
+```
+
+服务端确认：
+
+```json
+{
+  "type": "started",
+  "sampleRate": 16000,
+  "channels": 1,
+  "maxDurationSeconds": 20
+}
+```
+
+随后客户端发送任意数量的二进制帧（单帧最大 64 KiB）。每个二进制帧必须是小端序、16 位、
+有符号、单声道、16 kHz 原始 PCM 数据；帧之间不包含 WAV 头。客户端完成录音后发送 JSON 文本帧：
+
+```json
+{
+  "type": "finish"
+}
+```
+
+**响应示例（流式识别成功）:**
+
+```json
+{
+  "type": "result",
+  "success": true,
+  "matched": true,
+  "message": "识别成功",
+  "data": {
+    "id": 1,
+    "title": "晴天",
+    "artist": "周杰伦",
+    "album": "叶惠美",
+    "duration": 269,
+    "language": "中文",
+    "tags": "",
+    "filePath": "/api/music/file/1",
+    "coverFilePath": "/api/music/cover/1",
+    "coverUrl": "/api/music/cover/1",
+    "maxQuality": "sq",
+    "confidence": 0.8842,
+    "matchedLandmarks": 31,
+    "offsetSeconds": 42.31,
+    "sampleDurationSeconds": 3.0
+  }
+}
+```
+
+服务端从达到最短采样时长后开始按新增音频持续尝试匹配，不必等待录音结束；识别成功后会
+立即返回并主动关闭连接。若录音结束时没有匹配结果，返回与 HTTP 接口相同的
+`matched: false` 数据结构，并将 `type` 设置为 `result`。
+
+**响应示例（失败）:**
+
+```json
+{
+  "type": "error",
+  "success": false,
+  "matched": false,
+  "message": "PCM 音频分片无效",
+  "data": null
+}
+```
+
+**状态码 / 关闭码:** WebSocket 握手成功后使用 WebSocket 关闭码表示连接结束：
+`1000` 表示正常完成；`1002` 表示控制帧或顺序错误；`1003` 表示不支持的音频格式；
+`1008` 表示音频帧无效；`1009` 表示超过时长或大小限制；`1013` 表示服务暂时繁忙或索引
+暂不可用。握手失败时使用 HTTP 状态码，含义与 HTTP 识曲接口一致。
+
 ### 6. 获取播放次数排行榜
 
 **端点:** `GET /api/music/ranking`
