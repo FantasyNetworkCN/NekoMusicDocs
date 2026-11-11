@@ -2,7 +2,7 @@
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko歌姬计划 署名及源码链接！
 
-#### 更新时间 2026年11月9日
+#### 更新时间 2026年11月11日
 ## 概述
 
 Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -2403,11 +2403,8 @@ WebSocket 方式用于实时上传麦克风 PCM 音频。客户端边录音边�
 最短采样时长后持续尝试匹配；匹配成功会立即返回结果并关闭连接。该方式与上面的 HTTP
 接口相互独立，HTTP 接口仍可继续使用。
 
-**源站端点:** `ws://<源站域名>/api/music/recognize/ws`
-
-**请求头:** 无需登录；连接握手使用标准 WebSocket 请求头。源站支持普通 WS；
-若通过 CDN 对外提供 HTTPS 站点，客户端应连接 CDN 提供的 WebSocket 地址（通常为 `wss://`）；
-CDN 负责 TLS 终止，再以普通 WS Upgrade 转发到源站。
+**源站端点:** `wss://music.nekocore.cn/api/music/recognize/ws`
+- 无需登录；连接握手使用标准 WebSocket 请求头。
 
 **控制帧:**
 
