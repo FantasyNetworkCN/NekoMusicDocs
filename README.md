@@ -406,9 +406,35 @@ Content-Type: multipart/form-data
 - `coverFile`: 封面图片文件（可选，multipart/form-data）
   - 支持格式：jpg, jpeg, png, gif, webp, bmp
 - `lyricsFile`: 歌词文件（可选，multipart/form-data）
-  - 支持格式：lrc
-  - 相邻两行时间戳相同且文本不同，按「原文 + 翻译」处理：首行保留，第二行保存为 `{"翻译内容"}`；空白译文保存为 `{" "}`
+  - 支持格式：`.lrc`、`.neko`
+  - `.lrc`：UTF-8 行级歌词，至少包含一行 `[mm:ss.xx]` 时间轴
+  - `.neko`：UTF-8 编码的 `neko-v1` JSON，最大 1 MiB；`version` 必须为 `1`，`lines[]` 至少包含一行有效正文
+  - `.neko` 的 `lines[]`、`words[]` 字段与「获取音乐信息」中的 `lyricsRich` 一致，时间单位均为毫秒
+  - `.lrc` 中相邻两行时间戳相同且文本不同时，按「原文 + 翻译」处理：首行保留，第二行保存为 `{"翻译内容"}`；空白译文保存为 `{" "}`
   - 如果不提供歌词文件，系统会自动使用默认的空歌词文件
+
+`.neko` 示例：
+
+```json
+{
+  "version": 1,
+  "lines": [
+    {
+      "startMs": 10000,
+      "endMs": 14500,
+      "text": "第一句歌词",
+      "translation": "First line",
+      "romanization": null,
+      "background": false,
+      "words": [
+        { "startMs": 10000, "endMs": 10800, "text": "第一" },
+        { "startMs": 10800, "endMs": 11600, "text": "句" },
+        { "startMs": 11600, "endMs": 14500, "text": "歌词" }
+      ]
+    }
+  ]
+}
+```
 
 **响应示例（成功）:**
 ```json
