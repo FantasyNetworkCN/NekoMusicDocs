@@ -2,7 +2,7 @@
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko歌姬计划 署名及源码链接！
 
-#### 更新时间 2026年11月11日
+#### 更新时间 2026年11月14日
 ## 概述
 
 Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -26,6 +26,7 @@ Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用�
 - [歌曲评论 API](#歌曲评论-api)
 - [分享视频渲染 API](#分享视频渲染-api)
 - [外部音乐导入 API](#外部音乐导入-api)
+- [一起听 API](#一起听-api)
 - [客户端更新 API](#客户端更新-api)
 - [错误码说明](#错误码说明)
 
@@ -3351,6 +3352,18 @@ importPlaylist(neteaseUrl);
 ```
 
 **说明**：上述导入接口必须携带用户令牌，且必须指定 `targetPlaylistId` 或 `targetPlaylistName`；站外匹配与下载全部在服务端完成。`source` 为 `kugou`、`qishui` 或 `lxmc` 时曲目只有元数据，后端会先做站内匹配、再按歌名与歌手补全。
+
+---
+
+## 一起听 API
+
+一起听房间仅由 NekoMusic 客户端创建和加入。网页 `/together/{token}` 只负责拉起已安装的客户端，不提供房间界面或播放功能。
+
+客户端通过 `POST /api/listen/rooms` 创建一个无参数房间，服务端返回随机分享 URL。用户打开该 URL 后，客户端从路径中取得 `token`，调用 `POST /api/listen/rooms/{token}/join` 加入房间并取得 WebSocket 凭证。
+
+每个房间最多允许 10 个不同账号；创建后自动生成一个空的房间临时播放列表，所有成员都拥有相同的播放、切歌和列表编辑权限。播放状态与完整列表通过 `WS /api/listen/ws?ticket=...` 广播。
+
+完整端点、WebSocket 消息与状态码见 [一起听 API](./一起听.md)。
 
 ---
 
