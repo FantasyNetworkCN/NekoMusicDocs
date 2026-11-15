@@ -3062,6 +3062,7 @@ Authorization: Bearer <token>
 |------|------|
 | 特殊歌单 ID（数字） | `1234567` |
 | 网页版歌单链接 | `https://www.kugou.com/yy/special/single/1234567.html` |
+| 新版分享短链 | `https://t1.kugou.com/1hXk7bdG7V3` |
 | 移动端分享链接（gcid） | `https://m.kugou.com/songlist/gcid_3zmi8f5nz5z0c4/` |
 | 网关全局歌单 ID | `collection_3_12345678_1_0` |
 | 移动端单曲分享链接 | `https://m.kugou.com/share/?action=single&hash=...` |
