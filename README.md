@@ -2776,7 +2776,7 @@ async function getLatestMusic() {
 
 **端点:** `DELETE /api/comments?id={commentId}`
 
-**认证:** 需要用户 Token，只能删除自己的评论；携带管理员 Token 时可删除任意一条。
+**认证:** 需要用户 Token，只能删除自己的评论；NekoAuth 角色为 `ADMIN` 的用户 Token 可删除任意一条。
 
 删除是**物理删除**：记录直接从数据库移除，删楼层时会**连带删除该楼层下的全部回复**，不会留下占位楼层。
 
