@@ -3,7 +3,7 @@
 根据 GNU AGPLv3 协议第 7 条（Section 7），原作者在此声明以下附加约束：
 
 1. 强制开源 (Copyleft Enforcement):
-任何通过网络接入、调用或基于本 API 文档开发的程序（包括但不限于网页、App、小程序、桌面端及后台服务），只要向公众提供服务，其源代码必须以同等或更严格的开源协议（建议 AGPL-3.0）向其所有用户公开。
+任何通过网络接入、调用或基于本 API 文档开发的程序（包括但不限于网页、App、小程序、桌面端及后台服务），只要向公众提供服务，其源代码必须以同等或更严格的开源协议（强制 AGPL-3.0 除非获得仓库授权）向其所有用户公开。
 
 2. 署名要求与源码公示 (Attribution & Source Disclosure):
 所有接入本 API 的公开程序，必须在其用户界面（如“关于”页面、侧边栏、首页底部或控制台启动信息）的显著位置，永久保留以下信息：
@@ -20,7 +20,7 @@
 In accordance with Section 7 of the GNU Affero General Public License, version 3 (AGPLv3), the Author hereby asserts the following additional permissions and restrictions:
 
 1. Copyleft Enforcement:
-Any program (including but not limited to Web applications, Mobile Apps, Mini-programs, Desktop clients, and Backend services) that interacts with, invokes, or is developed based on this API documentation must, if it provides services to the public over a network, make its complete source code available to all users under the same or a more restrictive open-source license (AGPL-3.0 is strongly recommended).
+Any program (including but not limited to Web applications, Mobile Apps, Mini-programs, Desktop clients, and Backend services) that interacts with, invokes, or is developed based on this API documentation must, if it provides services to the public over a network, make its complete source code available to all users under the same or a more restrictive open-source license (AGPL-3.0 is mandatory unless authorization for the repository is obtained.).
 
 2. Attribution & Source Disclosure:
 All public programs utilizing this API must permanently and prominently display the following information within their user interface (e.g., "About" page, sidebar, footer, or console startup message):
