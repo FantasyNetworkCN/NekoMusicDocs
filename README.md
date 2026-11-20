@@ -2,7 +2,7 @@
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko歌姬计划 署名及源码链接！
 
-#### 更新时间 2026年11月14日
+#### 更新时间 2026年11月21日
 ## 概述
 
 Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -27,7 +27,6 @@ Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用�
 - [分享视频渲染 API](#分享视频渲染-api)
 - [外部音乐导入 API](#外部音乐导入-api)
 - [一起听 API](#一起听-api)
-- [客户端更新 API](#客户端更新-api)
 - [错误码说明](#错误码说明)
 
 ---
@@ -72,7 +71,7 @@ Accept-Language: zh-CN,zh;q=0.9
 
 > **账号与 Token 权威源：** 注册、登录、邮箱验证码、找回密码与改密全部由 NekoAuth 处理。NekoMusic 本地不保存用户密码、用户 Token、用户昵称或独立头像，只保存 NekoAuth `sub` 对应的 `auth_user_id`、邮箱快照和 VIP；昵称与头像在展示、搜索和通知场景中通过 NekoAuth 实时解析。
 >
-> 客户端必须通过 NekoAuth 登录页或扫码登录取得 Token，不得再调用已下线的邮箱密码注册、登录、验证码、找回密码或改密接口。
+> 客户端通过 NekoAuth 登录页或扫码登录取得 Token。
 >
 > Web 使用 NekoAuth 写入的第一方父域共享会话直接恢复 NekoMusic 登录态，不使用 OIDC 授权码静默登录；Android 与 PC 等原生客户端仍使用服务端 OIDC 授权流程。NekoAuth 是昵称唯一权威源；注册与修改昵称都会写入 NekoAuth，NekoMusic 不保存昵称副本，展示时实时读取。
 
@@ -1049,7 +1048,7 @@ Web 本地 Token 已过期时仍可凭当前 NekoAuth 共享会话完成退出�
 
 ### 24. NekoAuth 统一登录（服务端）
 
-Web、Android 与 PC 都通过 NekoAuth 完成统一登录与注册；邮箱密码登录、注册、验证码和找回密码兼容接口已经下线。
+Web、Android 与 PC 都通过 NekoAuth 完成统一登录与注册。
 Web 只使用父域共享会话，不使用 OIDC 授权码；原生客户端使用由 NekoMusic 服务端发起的
 OpenID Connect 授权码流程（机密客户端，PKCE S256）。
 
@@ -1157,9 +1156,18 @@ NekoAuth，不维护任何服务端昵称副本。
 
 **请求头:** 无需登录。该地址由 NekoAuth 应用登记并仅供原生客户端授权流程使用。
 
-**迁移说明（破坏性变更）:** 旧 `/oauth/nekocore/start` 与 `/oauth/nekocore/forgot-password` 已移除；
-`/oauth/nekocore/callback` 暂时保留用于已有部署的回调配置。新部署和 NekoAuth 客户端登记应使用
-`/sso/nekocore/callback`；其它浏览器入口统一使用 `/sso/nekocore/*`。
+NekoAuth 应用登记和客户端回调使用 `/sso/nekocore/callback`。
+
+**请求参数:** OIDC 回调由 NekoAuth 提供 `code` 与 `state`，授权失败时提供 `error`。
+
+**响应示例（成功）:** `302`，跳转到站内完成页。
+
+**响应示例（失败）:**
+```json
+{"success":false,"error":"authorization_failed","message":"NekoAuth 授权未完成"}
+```
+
+**状态码:** `302` 授权成功回到原生完成页；`400` 回调参数或会话无效；`403` 用户取消授权；`502` 授权服务异常；`503` 登录不可用。
 
 成功时跳转到站内 HTTPS 完成页；Android / PC 完成页随后打开
 `nekomusic://sso/complete?handoff=<一次性交接>`。深链中不得携带 access token。
@@ -1249,35 +1257,6 @@ Web 在当前浏览器中打开该地址，Android 在应用内 WebView 中打�
 每日上限、新密码校验与旧 token 失效全部由 NekoAuth 处理。
 
 **状态码:** `200` 成功；`503` NekoAuth 根地址未配置或暂时不可用。
-
-#### 24.8 显式全局退出 NekoAuth（可选）
-
-**端点:** `POST /api/user/sso/logout-url`
-
-**请求头:** 无需登录；仅原生客户端使用。
-
-**请求体:**
-
-```json
-{ "idToken": "<登录领取的 ID Token>" }
-```
-
-**响应示例（成功）:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "url": "https://auth.nekocore.cn/oauth2/logout?id_token_hint=...&client_id=...&post_logout_redirect_uri=..."
-  }
-}
-```
-
-该端点只用于用户明确选择“退出所有设备”的场景。普通客户端退出登录不得调用它，而应只调用
-`POST /api/user/logout` 吊销当前客户端的 Token；否则会注销同一 Auth 会话下的 Web 与其它设备。
-Web 客户端的普通登出同样由 `POST /api/user/logout` 直接完成，不导航本端点。
-
-**状态码:** `200` 成功；`400` 缺少或非法的 ID Token；`503` NekoAuth 登录未启用或配置不完整。
 
 ### 25. 提交歌词报错
 
@@ -2211,7 +2190,8 @@ Authorization: <token>        # 可选
 **错误请求（400）:**
 ```json
 {
-  "error": "请求格式错误: query 与 items 不能同时提供"
+  "success": false,
+  "message": "请求格式错误: query 与 items 不能同时提供"
 }
 ```
 
@@ -2802,7 +2782,7 @@ curl -X DELETE 'https://music.nekocore.cn/api/comments?id=14' \
 ### 说明
 
 - **时间**：`createdAt` 为东八区(UTC8)墙钟时间（`yyyy-MM-dd HH:mm:ss`）。
-- **IP 归属地**：`ipRegion` 是发表时用自建数据库解析的快照，IPv4 / IPv6 均支持；国内普通省份只显示省级行政区（如 `江西`、`广东`），不显示普通地级市；北京、上海、天津、重庆因本身就是省级行政区，显示为 `北京` / `上海` / `天津` / `重庆`，港澳台统一带「中国」前缀（`中国香港` / `中国澳门` / `中国台湾`），国外只取国家名、不返回省 / 市；内网 / 回环地址为 `本地`，国内省级信息解析不到时显示 `中国`，所有来源都无法识别时显示 `其他`。不请求任何第三方接口。历史评论保留发表时的快照，不会随数据库升级自动重算；历史 `unknown` / `未知` 在接口输出时显示为 `其他`。客户端 IP 的具体解析方式属服务端实现，不对外公开。
+- **IP 归属地**：`ipRegion` 是发表时用自建数据库解析的快照，IPv4 / IPv6 均支持；国内普通省份只显示省级行政区（如 `江西`、`广东`），不显示普通地级市；北京、上海、天津、重庆因本身就是省级行政区，显示为 `北京` / `上海` / `天津` / `重庆`，港澳台统一带「中国」前缀（`中国香港` / `中国澳门` / `中国台湾`），国外只取国家名、不返回省 / 市；内网 / 回环地址为 `本地`，国内省级信息解析不到时显示 `中国`，所有来源都无法识别时显示 `其他`。不请求任何第三方接口。历史评论保留发表时的快照，不会随数据库升级自动重算；已保存的非空地区值按原值展示，不再转换旧的 `unknown` / `未知`。客户端 IP 的具体解析方式属服务端实现，不对外公开。
 - **头像**：接口只返回 `user.id`，客户端按 `/api/user/avatar/{userId}` 取图。
 
 ---
@@ -3114,6 +3094,15 @@ Authorization: Bearer <token>
 
 **响应：** 歌单数据统一放在 `response` 字段中，结构为 `{code, listid, name, songnum, songlist[]}`；`listid` 缺失或非法返回 `400`，酷狗上游异常返回 `502`。
 
+**请求头:** 无需登录。
+
+**响应示例（失败）:**
+```json
+{"success":false,"message":"歌单参数无效"}
+```
+
+**状态码:** `200` 成功；`400` 参数无效；`502` 上游不可用。
+
 
 ### 5. 汽水音乐歌单导入
 
@@ -3180,6 +3169,15 @@ Authorization: Bearer <token>
 ```
 
 **响应：** 歌单数据放在 `data` 字段中，结构为 `{code, playlist_id, name, owner, cover, songnum, songlist[]}`；`duration` 为毫秒。`playlist_id` 缺失或非法返回 `400`，汽水上游异常或歌单不可访问返回 `502`。
+
+**请求头:** 无需登录。
+
+**响应示例（失败）:**
+```json
+{"success":false,"message":"歌单参数无效"}
+```
+
+**状态码:** `200` 成功；`400` 参数无效；`502` 上游不可用。
 
 
 ### 7. 落雪歌单文件解析
@@ -3851,66 +3849,6 @@ Authorization: <token>
 - `room_not_found`
 
 客户端应以稳定错误码为准，不要匹配 `message` 文案。
-
----
-
-## 客户端更新 API
-
-### 1. 获取客户端版本与下载地址
-
-**端点:** `GET /version`
-
-**请求头:** 无需登录，不需要 `Authorization`。客户端应携带明确的 `User-Agent`。
-
-**请求参数:** 无。
-
-**响应示例（成功）**：
-```json
-{
-  "ver": "20260207-36",
-  "updateUrl": "https://music.nekocore.cn/update/20260207-36.apk",
-  "size": 20971520,
-  "pc": {
-    "pc_ver": "2026.207.6",
-    "windows": "https://music.nekocore.cn/update/Neko%E6%AD%8C%E5%A7%AC%E8%AE%A1%E5%88%92%20Setup%202026.207.6.exe",
-    "linux": "https://music.nekocore.cn/update/NekoMusic_2026.207.6_amd64.deb",
-    "mac": "https://music.nekocore.cn/update/Neko%E6%AD%8C%E5%A7%AC%E8%AE%A1%E5%88%922026.207.6.pkg",
-    "windows_size": 31457280,
-    "linux_size": 25165824,
-    "mac_size": 27262976
-  }
-}
-```
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `ver` | string | 当前 Android 手机客户端版本号 |
-| `updateUrl` | string | Android 手机安装包下载地址 |
-| `size` | number | Android 安装包字节数；`0` 表示安装包暂未上传 |
-| `pc.pc_ver` | string | 当前桌面客户端版本号 |
-| `pc.windows` / `pc.linux` / `pc.mac` | string | 对应平台安装包下载地址 |
-| `pc.windows_size` / `pc.linux_size` / `pc.mac_size` | number | 对应安装包字节数；`0` 表示暂未上传 |
-
-响应通常带有 `Cache-Control: public, max-age=60, must-revalidate`，客户端和 CDN 可缓存 60 秒。
-
-**响应示例（失败）**：
-```json
-{
-  "success": false,
-  "message": "客户端版本尚未配置"
-}
-```
-
-**状态码:**
-
-| 状态码 | 说明 |
-|--------|------|
-| 200 | 成功返回当前对外版本与下载地址 |
-| 503 | 尚未配置客户端版本 |
-
-**破坏性变更（2026-11-02）：** 响应不再包含 `watch` 对象；iOS 客户端和 Android 手表安装包不再分发，
-也不再提供对应上传入口。macOS 安装包继续通过 `pc.mac` / `pc.mac_size` 提供。客户端应忽略已不存在的
-`watch` 字段，并按实际平台读取 `updateUrl` 或 `pc.*` 下载地址。
 
 ---
 
