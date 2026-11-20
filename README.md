@@ -1157,8 +1157,6 @@ NekoAuth，不维护任何服务端昵称副本。
 
 **请求头:** 无需登录。该地址由 NekoAuth 应用登记并仅供原生客户端授权流程使用。
 
-旧地址 `GET /oauth/nekocore/callback` 继续作为兼容别名。
-
 成功时跳转到站内 HTTPS 完成页；Android / PC 完成页随后打开
 `nekomusic://sso/complete?handoff=<一次性交接>`。深链中不得携带 access token。
 
