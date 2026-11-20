@@ -1,41 +1,44 @@
 ===============================================================================
-【附加条款 / Additional Terms】
-根据 GNU AGPLv3 协议第 7 条（Section 7），原作者在此声明以下附加约束：
+【Neko歌姬计划 API 服务使用协议 / API Terms of Service】
+本协议作为 Neko歌姬计划 API 的强制服务使用条件，适用于所有申请、获得或使用 Neko歌姬计划 API 访问授权的个人及组织，以及其运营的相关接入项目。
+本协议为独立制定的 API 服务使用协议，与 GNU AGPL-3.0 软件许可证属于不同的法律文件。本协议所规定的开源、署名及品牌保护义务，属于使用 Neko歌姬计划 API 服务所必须遵守的独立使用条件，不构成对 GNU AGPL-3.0 许可证的修改或附加限制，亦不代表单纯调用 AGPL 授权软件或服务本身会自动产生本协议规定的开源义务。
+使用者必须在申请或获取 API 访问凭证前，明确同意并遵守本协议。未同意本协议的个人或组织，不得申请、获取或使用由服务提供者控制的 API 访问授权。
 
-1. 强制开源 (Copyleft Enforcement):
-任何通过网络接入、调用或基于本 API 文档开发的程序（包括但不限于网页、App、小程序、桌面端及后台服务），只要向公众提供服务，其源代码必须以同等或更严格的开源协议（强制 AGPL-3.0 除非获得仓库授权）向其所有用户公开。
+1. 强制开源 (Mandatory Open Source):
+任何申请、获得或使用 Neko歌姬计划 API 访问授权的项目，无论是否收费、是否盈利或是否向公众提供服务，其完整项目源代码均必须按照本协议要求公开。
+    (A) 完整开源：必须公开整个 API 接入项目的完整源代码，包括实现 API 接入功能所涉及的客户端、服务端及相关业务代码，不得仅公开 API 调用模块、接口封装或部分代码，而将项目主体保持闭源。
+    (B) 开源协议：使用者拥有著作权或有权进行许可的项目源代码，默认必须采用 GNU AGPL-3.0 协议公开，未经原作者书面授权，不得采用其他开源协议或闭源方式发布。第三方依赖、组件及其他受独立许可证约束的内容，应遵守其原有许可证，不得侵犯第三方权利。
+    (C) 公开仓库：必须提供 GitHub 或其他公开代码托管平台上的完整项目仓库，确保任何人均可免费访问和获取项目源代码，不得使用私有仓库或其他访问受限的方式代替。
+    (D) 版本同步：实际运行或发布的程序必须与公开仓库中的源代码保持对应。项目更新或发布新版本时，必须及时同步公开相应源代码，不得以过期版本、不完整代码或与实际运行版本不对应的代码代替。
+    (E) 信息安全：公开源代码时，不得将 API 密钥、数据库密码、私人访问令牌、私钥及其他敏感凭证一并公开。上述敏感信息不属于本条款要求公开的源代码内容。
 
 2. 署名要求与源码公示 (Attribution & Source Disclosure):
-所有接入本 API 的公开程序，必须在其用户界面（如“关于”页面、侧边栏、首页底部或控制台启动信息）的显著位置，永久保留以下信息：
-    (A) 署名信息："本程序由 Neko歌姬计划 API 提供技术支持"；
-    (B) 源码链接：必须标注该程序自身对应的 GitHub 仓库（或其他公开仓库）的完整跳转链接；
+所有接入本 API 的项目，在持续接入、调用或集成本 API 期间，以及仍包含本 API 接入功能的相关版本中，必须在其用户界面（如“关于”页面、侧边栏、首页底部或者音源启用时等）或适当的项目说明文件及控制台启动信息中，持续保留并提供以下信息：
+    (A) 署名信息："本程序接入 Neko歌姬计划 API，API 技术来源：Neko歌姬计划"；
+    (B) 源码链接：必须标注该程序自身对应的 GitHub 仓库（或其他公开代码托管平台）的完整有效跳转链接，确保用户能够直接访问项目完整源代码；
     (C) 文档归属：必须包含本项目 API 文档的原始链接：https://github.com/FantasyNetworkCN/NekoMusicDocs
+不得以仅提供 API 接口说明、SDK、示例代码或其他部分源代码的方式代替完整项目仓库公示义务。
 
 3. 禁止冒名顶替 (Anti-Impersonation):
-严禁在未获得原作者书面授权的情况下，宣称该程序为独立原创。严禁移除或遮掩“Neko歌姬计划”品牌标识，或将其更名为其他具有误导性的名称（如“XX云音乐”且不注明来源）。
+严禁在未获得原作者书面授权的情况下，宣称 Neko歌姬计划 API 本身由接入者独立原创、开发或运营，或者将 Neko歌姬计划 API 冒充为接入者自身开发的 API 服务或官方产品。
+严禁故意删除、隐藏或遮掩本协议规定的来源声明、署名信息及 API 文档链接，不得通过更改项目名称、品牌标识或其他方式误导用户，使其无法识别该程序与 Neko歌姬计划 API 之间的技术来源关系。
+未经授权，不得冒用 Neko歌姬计划的官方身份，不得虚假宣称获得官方认证、官方合作或其他未经授权的官方身份。本条款不限制接入者使用自己的项目名称、品牌标识及独立产品身份，但不得借此隐瞒或歪曲 API 的实际技术来源。
+任何违反上述强制开源义务、署名要求、源码公示义务或品牌保护要求的行为，均构成对本 API 使用协议的违约。原作者有权根据违规情况暂停或终止违规者的 API 访问授权，并依法追究相应责任。对于严重滥用、恶意攻击或其他可能危害 API 服务安全的行为，原作者有权立即采取暂停访问等必要措施。
+上述 API 访问授权的暂停或终止，不改变 GNU AGPL-3.0 对相关软件及其合法接收者的适用规则，亦不当然剥夺任何人依据该许可证已经合法获得的权利。
 
-任何违反上述署名要求、源码公示义务或开源义务的行为，将导致本许可协议授权自动终止。
-===============================================================================
-【Additional Terms】
-In accordance with Section 7 of the GNU Affero General Public License, version 3 (AGPLv3), the Author hereby asserts the following additional permissions and restrictions:
-
-1. Copyleft Enforcement:
-Any program (including but not limited to Web applications, Mobile Apps, Mini-programs, Desktop clients, and Backend services) that interacts with, invokes, or is developed based on this API documentation must, if it provides services to the public over a network, make its complete source code available to all users under the same or a more restrictive open-source license (AGPL-3.0 is mandatory unless authorization for the repository is obtained.).
-
-2. Attribution & Source Disclosure:
-All public programs utilizing this API must permanently and prominently display the following information within their user interface (e.g., "About" page, sidebar, footer, or console startup message):
-    (A) Attribution: "Powered by Neko Music API";
-    (B) Source Code Link: A direct and functional hyperlink to the program's own public source code repository (e.g., GitHub);
-    (C) Documentation Reference: A link to the original API documentation: https://github.com/FantasyNetworkCN/NekoMusicDocs
-
-3. Anti-Impersonation:
-It is strictly prohibited to claim that the program is an independent original work without prior written authorization from the original Author. Removing or obscuring the "Neko Music" brand identity, or renaming the program to a misleading name (e.g., "XX Music" without stating the source) is strictly forbidden.
-
-4. Multi-language Support (i18n Requirements):
-Any public-facing program utilizing this API must support at least two languages to ensure accessibility: Chinese and English. The user interface must provide a clear method for users to switch between these languages.
-
-5. Termination of License:
-Any violation of the aforementioned attribution requirements, source disclosure obligations, copyleft obligations, or i18n requirements shall result in the automatic termination of the license granted under this agreement.
+4. 禁止商业使用 (Non-Commercial Use):
+Neko歌姬计划 API 服务仅允许用于个人学习、研究、教育及其他非商业目的。未经 API 服务提供者事先书面授权，任何个人或组织不得将本 API 用于直接或间接商业活动。
+    (A) 商业使用定义：本协议所称商业使用，是指以获取经济利益、商业收益或其他经营利益为目的使用本 API 的行为，包括但不限于：
+        1. 将本 API 集成至收费软件、商业产品或商业服务；
+        2. 通过订阅、会员、付费解锁、使用次数收费或其他方式向用户收取费用；
+        3. 将本 API 提供的功能作为收费服务、商业项目或企业经营活动的一部分；
+        4. 通过广告、商业赞助、推广分成、流量变现或其他商业化方式，以本 API 提供的功能获取经济收益；
+        5. 以本 API 为技术基础，为客户提供收费的软件开发、部署、运营或技术服务；
+        6. 其他以直接或间接获取商业利益为目的使用本 API 的行为。
+    (B) 非商业使用范围：个人学习、个人研究、非商业教育活动及不以获取商业利益为目的的开源社区项目，在遵守本协议其他条款的前提下，可以申请或使用本 API。
+    (C) 商业授权例外：任何个人或组织确有商业使用需求的，必须事先取得 API 服务提供者的书面商业授权。未经授权，不得以项目已经公开源代码、采用 GNU AGPL-3.0 或保留 Neko歌姬计划署名等理由，主张获得商业使用许可。
+    (D) 违规处理：任何未经授权将本 API 用于商业目的的行为，均构成对本协议的违约。API 服务提供者有权暂停或终止相关 API 访问授权，并依法追究相应责任。
+    (E) 许可证独立性：本条规定的非商业使用限制仅适用于 Neko歌姬计划 API 服务的访问、调用及使用授权，不构成对 GNU AGPL-3.0 软件许可证的修改或附加限制，不限制任何人依据 GNU AGPL-3.0 对其已经合法获得的软件所享有的使用、修改、传播及商业利用权利。
 ===============================================================================
 
                     GNU AFFERO GENERAL PUBLIC LICENSE
