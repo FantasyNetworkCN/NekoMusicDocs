@@ -1157,8 +1157,9 @@ NekoAuth，不维护任何服务端昵称副本。
 
 **请求头:** 无需登录。该地址由 NekoAuth 应用登记并仅供原生客户端授权流程使用。
 
-**迁移说明（破坏性变更）:** 旧 `/oauth/nekocore/callback` 已移除。NekoAuth 客户端登记与原生客户端流程必须使用
-`/sso/nekocore/callback`；其它浏览器入口同样统一使用 `/sso/nekocore/*`。
+**迁移说明（破坏性变更）:** 旧 `/oauth/nekocore/start` 与 `/oauth/nekocore/forgot-password` 已移除；
+`/oauth/nekocore/callback` 暂时保留用于已有部署的回调配置。新部署和 NekoAuth 客户端登记应使用
+`/sso/nekocore/callback`；其它浏览器入口统一使用 `/sso/nekocore/*`。
 
 成功时跳转到站内 HTTPS 完成页；Android / PC 完成页随后打开
 `nekomusic://sso/complete?handoff=<一次性交接>`。深链中不得携带 access token。
