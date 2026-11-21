@@ -2,7 +2,7 @@
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko歌姬计划 署名及源码链接！
 
-#### 更新时间 2026年11月21日
+#### 更新时间 2026年11月22日
 ## 概述
 
 Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -22,6 +22,7 @@ Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用�
 - [歌手相关 API](#歌手相关-api)
 - [VIP 与价目 API](#vip-与价目-api)
 - [音乐相关 API](#音乐相关-api)
+- [流式人声 / 伴奏分离](#31-流式人声--伴奏分离)
 - [听歌识曲 API](#听歌识曲-api)
 - [歌曲评论 API](#歌曲评论-api)
 - [分享视频渲染 API](#分享视频渲染-api)
@@ -2371,6 +2372,68 @@ Authorization: Bearer <token>
 | `404` | 音乐或音频文件不存在 |
 | `500` | 人声 / 伴奏分离处理失败 |
 | `503` | 人声 / 伴奏分离任务繁忙或服务暂不可用 |
+
+### 3.1 流式人声 / 伴奏分离
+
+**端点:** `GET /api/music/file/{id}/stream?separate=1`
+
+**请求头:** 必须携带 `Authorization: Bearer <token>`。使用浏览器 `EventSource` 时无法设置自定义
+请求头，可改用查询参数 `token=<token>`。
+
+**查询参数:**
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `separate` | boolean | — | 必填且必须为开启状态 |
+| `token` | string | — | 仅在无法设置 `Authorization` 时用于鉴权 |
+
+**响应类型:** `text/event-stream;charset=UTF-8`
+
+服务端将任务放入有界队列，并持续推送以下事件：
+
+| 事件 | 说明 |
+|------|------|
+| `queued` | 任务已进入队列，包含 `jobId`、`musicId`、`queuePosition` |
+| `start` | 分离工作进程已开始处理该曲目 |
+| `meta` | 包含 `totalChunks`、`sampleRate`、`device`、`fp16`、`chunkSeconds` |
+| `chunk` | 一个分片已完成，包含人声与伴奏的可播放媒体地址 |
+| `done` | 全部分片完成，返回两条完整媒体地址 |
+| `error` | 处理失败，包含可展示的 `message` |
+
+`chunk` 事件示例：
+
+```text
+event: chunk
+data: {"index":0,"totalChunks":12,"startSec":0.0,"endSec":30.0,
+       "vocalsUrl":"/media/music/1/vocals-v1-000.mp3",
+       "accompanimentUrl":"/media/music/1/accompaniment-v1-000.mp3"}
+```
+
+`done` 事件示例：
+
+```text
+event: done
+data: {"vocalsUrl":"/media/music/1/vocals-v1.mp3",
+       "accompanimentUrl":"/media/music/1/accompaniment-v1.mp3"}
+```
+
+- 客户端应在收到 `chunk` 后立即缓存或排队播放对应分片，不应等待整首完成。
+- 同一任务的 `index` 从 `0` 连续递增；客户端应按 `index` 排序，不依赖网络到达顺序。
+- 分片地址内容不可变，可由 CDN 长期缓存；SSE 连接本身不使用缓存。
+- 客户端断线后可重新请求同一路径。未完成的任务会复用已有任务并重放已经产生的事件，客户端应按 `jobId` 与分片 `index` 去重；已缓存完整结果时直接返回 `done`。
+- `queuePosition` 为提交时的队列位置提示，会随其他任务完成而变化，客户端不应把它当作精确倒计时。
+- 处理期间可能有多个 VIP 任务排队，服务端不会为每个请求启动独立模型进程。
+
+**状态码:**
+
+| 状态码 | 含义 |
+|--------|------|
+| `200` | SSE 连接建立成功 |
+| `400` | 音乐 ID 或 `separate` 参数无效 |
+| `401` | 未登录 |
+| `403` | 当前账号不是有效 VIP |
+| `404` | 音乐或音频文件不存在 |
+| `503` | 分离队列已满或分离服务暂不可用 |
 
 ### 4. 获取音乐封面
 
