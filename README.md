@@ -75,6 +75,8 @@ Accept-Language: zh-CN,zh;q=0.9
 >
 > Web 使用 NekoAuth 写入的第一方父域共享会话直接恢复 NekoMusic 登录态，不使用 OIDC 授权码静默登录；Android 与 PC 等原生客户端仍使用服务端 OIDC 授权流程。NekoAuth 是昵称唯一权威源；注册与修改昵称都会写入 NekoAuth，NekoMusic 不保存昵称副本，展示时实时读取。
 
+> **邮箱为可选资料：** 仅绑定手机号、未绑定邮箱的 NekoAuth 账号也能登录。登录、扫码领取、用户资料及用户搜索响应中的 `email` 未绑定时为 `""`；客户端应允许空字符串，不得据此判定登录失败。之后绑定或解绑邮箱，本地用户 `id`、收藏、歌单与会员资料保持不变。
+
 ### 6. 获取用户头像
 
 **端点:** `GET /api/user/avatar/{userId}`
@@ -632,6 +634,7 @@ Authorization: Bearer <token>
 ```
 
 `user` 字段与登录接口 `data.user` 完全一致，客户端可以直接复用解析逻辑。
+`user.email` 为字符串，未绑定邮箱时返回 `""`；该情况仍返回成功响应。
 
 **响应示例（未登录 / Token 失效）:**
 ```json
@@ -788,6 +791,8 @@ Content-Type: application/json
   }
 }
 ```
+
+领取成功时 `data.user.email` 允许为 `""`，表示未绑定邮箱，不影响 Token 的使用。
 
 **响应示例（未领到令牌）:**
 ```json
@@ -1052,6 +1057,9 @@ Web、Android 与 PC 都通过 NekoAuth 完成统一登录与注册。
 Web 只使用父域共享会话，不使用 OIDC 授权码；原生客户端使用由 NekoMusic 服务端发起的
 OpenID Connect 授权码流程（机密客户端，PKCE S256）。
 
+邮箱绑定和验证状态不作为 NekoMusic 登录条件；仅绑定手机号的账号可使用相同登录流程，
+成功响应中的 `user.email` 为 `""`。账号资料修改仍统一在 NekoAuth 完成。
+
 **昵称边界：** NekoAuth 是昵称唯一权威源。NekoMusic 的 MySQL 不保存昵称列，登录、SSO、资料页、
 评论、通知、歌单、用户搜索与后台展示都读取 NekoAuth 返回的当前昵称。NekoMusic 的昵称修改接口只写
 NekoAuth，不维护任何服务端昵称副本。
@@ -1120,6 +1128,7 @@ NekoAuth，不维护任何服务端昵称副本。
 
 客户端应使用 `credentials: include`，并把响应中的 Token 写入本地会话存储。
 该 Token 会随 NekoAuth 父域共享会话失效；当接口返回 `401` 时应清除本地登录态。
+未绑定邮箱时 `data.user.email` 返回 `""`，共享会话同步仍成功。
 
 **响应示例（失败）:**
 
@@ -1214,6 +1223,7 @@ Content-Type: application/json
 - handoff 120 秒内有效，且只能成功领取一次；刷新完成页或重复提交会返回 `410`。
 - 领取到的 token 后续放在 `Authorization: Bearer <token>` 请求头中。
 - 响应使用 `Cache-Control: private, no-store`，token 不会写回 URL。
+- 未绑定邮箱时 `data.user.email` 返回 `""`，仍可正常领取并使用 token。
 
 **状态码:**
 
