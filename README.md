@@ -2281,7 +2281,8 @@ Authorization: <token>        # 可选
 
 **端点:** `GET /api/music/file/{id}`
 
-**请求头:** 无需登录；建议携带标准 `User-Agent`。
+**请求头:** 普通播放无需登录；启用人声 / 伴奏分离时必须携带
+`Authorization: Bearer <token>`。建议所有请求携带标准 `User-Agent`。
 
 **路径参数:**
 - `id`: 音乐 ID
@@ -2291,11 +2292,17 @@ Authorization: <token>        # 可选
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `quality` | string | `hq` | 目标音质，可选 `standard`、`hq`、`sq`、`hires` |
+| `separate` | boolean | `false` | 是否启用人声 / 伴奏分离；`1`、`true`、`yes` 为开启，`0`、`false`、`no` 为关闭 |
 
 **示例:**
 
 ```text
 GET /api/music/file/1?quality=hq
+```
+
+```text
+GET /api/music/file/1?separate=1
+Authorization: Bearer <token>
 ```
 
 **音质规则:**
@@ -2307,6 +2314,7 @@ GET /api/music/file/1?quality=hq
 - 只允许从原始高音质向低音质转换，禁止低音质升码。
 - 请求的音质高于歌曲实际最高音质时，返回歌曲原始最高音质。
 - 未传 `quality` 时按 `hq` 请求；歌曲不支持 `hq` 时返回 `standard` 或原始音源。
+- `separate=1` 仅对有效 VIP 用户开放。分离结果统一为 320 kbps MP3，`quality` 不改变该模式下的输出格式。
 
 **响应示例（成功）:**
 
@@ -2324,6 +2332,23 @@ GET /api/music/file/1?quality=hq
 - `Content-Type` 根据实际文件格式返回，例如 `audio/mpeg`、`audio/flac`。
 - 首次请求 `standard` 或 `hq` 时，服务端会使用原生 FFmpeg 压缩并写入磁盘；后续请求直接复用缓存文件。
 
+**人声 / 伴奏分离响应（成功）:**
+
+启用 `separate=1` 后，成功响应为 `text/plain;charset=UTF-8`，正文严格为两行：
+
+- 第一行：人声媒体地址。
+- 第二行：伴奏媒体地址。
+
+```text
+/media/music/1/vocals-v1.mp3
+/media/music/1/accompaniment-v1.mp3
+```
+
+- 两个地址均为站内相对地址；客户端需要按当前 API 域名补全。
+- 两条媒体与普通音频一样支持 `Range`、`ETag`、`Last-Modified`，并由 CDN 公共缓存六个月；其中任一路径内容被替换后可通过 ETag 再校验。
+- 同一歌曲首次启用分离时需要等待服务端完成处理；生成并缓存后，后续请求直接返回两条媒体地址。
+- 未传 `separate` 或显式关闭时，仍返回下方原有的 JSON 契约，不受该功能影响。
+
 **响应示例（失败）:**
 
 ```json
@@ -2333,9 +2358,19 @@ GET /api/music/file/1?quality=hq
 }
 ```
 
-> 本接口返回 `200` + JSON `data.url`，客户端再对 `data.url` 发起普通 GET 获取音频字节。
+分离模式的失败响应仍为 JSON。未登录返回 `401`；非 VIP 返回 `403`；分离任务繁忙或服务暂不可用返回 `503`；处理失败返回 `500`。
 
-**状态码:** `200` 成功；`404` 音乐不存在或音质处理失败；`400` 无效的音乐 ID。
+**状态码:**
+
+| 状态码 | 含义 |
+|--------|------|
+| `200` | 获取播放地址成功 |
+| `400` | 音乐 ID 或 `separate` 参数无效 |
+| `401` | 启用分离但未登录 |
+| `403` | 启用分离但当前账号不是有效 VIP |
+| `404` | 音乐或音频文件不存在 |
+| `500` | 人声 / 伴奏分离处理失败 |
+| `503` | 人声 / 伴奏分离任务繁忙或服务暂不可用 |
 
 ### 4. 获取音乐封面
 
