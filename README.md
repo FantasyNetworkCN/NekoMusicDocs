@@ -119,7 +119,7 @@ Authorization: <token>
 ```
 
 **字段说明:**
-- `maxQuality`: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
+- `maxQuality`: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires` / `dolby`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
 
 ### 8. 添加收藏
 
@@ -336,7 +336,7 @@ Authorization: <token>
 
 **说明:**
 - 只有收藏过该歌单的用户才能查看歌单内的音乐
-- `maxQuality`: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
+- `maxQuality`: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires` / `dolby`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
 - 音乐按 position 字段升序排列
 
 ### 14. 获取每日推荐
@@ -381,7 +381,7 @@ Authorization: <token>
 **字段说明:**
 - `date`: 推荐结果所属日期（东八区）
 - `count`: 返回条数
-- `maxQuality`: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
+- `maxQuality`: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires` / `dolby`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
 - `source`: 推荐来源（当前固定为 `rule`，即规则召回与排序）
 - `reason`: 推荐理由（用于前端展示）
 
@@ -571,7 +571,7 @@ Authorization: <token>
 - 每首音乐包含：
   - id, title, artist, album, duration
   - language, tags, fileFormat
-  - maxQuality: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`
+  - maxQuality: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires` / `dolby`；尚未探测过时为 `null`
   - createdAt: 创建时间
 
 **使用场景:**
@@ -1672,7 +1672,7 @@ Authorization: <token>
 **说明:**
 - 音乐列表按照 `position` 字段升序排列
 - 返回的音乐信息包含完整的歌曲详情和添加时间
-- `maxQuality`: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
+- `maxQuality`: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires` / `dolby`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
 - 此 API **无需登录**即可访问（后端已移除 token 验证）
 - 任何用户（包括未登录用户）都可以查看歌单内容
 
@@ -2193,7 +2193,7 @@ Authorization: <token>        # 可选
 | `duration` | number | 时长（秒） |
 | `uploadUserId` | number | 上传用户 ID，无则为 0 |
 | `createdAt` | string | 入库时间 |
-| `maxQuality` | string \| null | 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）。与 `GET /api/music/info/{id}` 的 `maxQuality` 同义 |
+| `maxQuality` | string \| null | 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires` / `dolby`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）。与 `GET /api/music/info/{id}` 的 `maxQuality` 同义 |
 
 **资源 URL（由客户端按 `id` 拼接，响应中不再返回路径字段）:**
 - 音频：`GET /api/music/file/{id}`
@@ -2292,7 +2292,7 @@ Authorization: <token>        # 可选
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `quality` | string | `hq` | 目标音质，可选 `standard`、`hq`、`sq`、`hires` |
+| `quality` | string | `hq` | 目标音质，可选 `standard`、`hq`、`sq`、`hires`、`dolby` |
 | `separate` | boolean | `false` | 是否启用人声 / 伴奏分离；`1`、`true`、`yes` 为开启，`0`、`false`、`no` 为关闭 |
 
 **示例:**
@@ -2311,7 +2311,8 @@ Authorization: Bearer <token>
 - `standard`：标准音质，服务端按 128 kbps MP3 缓存生成。
 - `hq`：高品质，服务端按 320 kbps MP3 缓存生成。
 - `sq`：无损；原始音源为 Hi-Res 时会降为 44.1kHz/16bit FLAC，不会把有损音源升码。
-- `hires`：Hi-Res，只返回原始 Hi-Res 音源；最高等级封顶为 `hires`。
+- `hires`：Hi-Res，只返回原始 Hi-Res 音源；不会为普通音源伪造 Hi-Res。
+- `dolby`：杜比音源，返回原始 AC-3、E-AC-3、TrueHD 或 MLP 音频；客户端必须具备相应解码或直通能力。音质级别高于 `hires`。
 - 只允许从原始高音质向低音质转换，禁止低音质升码。
 - 请求的音质高于歌曲实际最高音质时，返回歌曲原始最高音质。
 - 未传 `quality` 时按 `hq` 请求；歌曲不支持 `hq` 时返回 `standard` 或原始音源。
@@ -2494,7 +2495,7 @@ curl -sS -X POST 'https://music.nekocore.cn/api/music/recognize' \
 
 | 字段 | 说明 |
 |------|------|
-| `maxQuality` | 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null` |
+| `maxQuality` | 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires` / `dolby`；尚未探测过时为 `null` |
 | `confidence` | 匹配置信度，范围 `0–1`；仅返回达到服务端阈值的结果 |
 | `matchedLandmarks` | 对齐的声纹特征数量 |
 | `offsetSeconds` | 录音片段在歌曲中的估计起始位置（秒） |
@@ -2662,7 +2663,7 @@ WebSocket 方式用于实时上传麦克风 PCM 音频。客户端边录音边�
   - language: 语言
   - tags: 标签
   - playCount: 播放次数
-  - maxQuality: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
+  - maxQuality: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires` / `dolby`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
 
 **使用场景:**
 - 首页展示热门音乐
@@ -2729,7 +2730,7 @@ async function getMusicRanking() {
   - language: 语言
   - tags: 标签
   - fileFormat: 音频文件格式（mp3/flac/wav）
-  - maxQuality: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
+  - maxQuality: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires` / `dolby`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
   - createdAt: 创建时间（Unix 时间戳，毫秒）
 
 **使用场景:**
@@ -4624,7 +4625,7 @@ Content-Type: application/json
   - 歌手名称（name）
   - 该歌手的音乐数量（musicCount）
   - 该歌手的所有音乐列表（musicList），包含完整的音乐信息
-  - musicList 每项含 `maxQuality`：该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires`；尚未探测过时为 `null`
+  - musicList 每项含 `maxQuality`：该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires` / `dolby`；尚未探测过时为 `null`
 - 如果没有找到匹配的歌手，返回空的歌手信息和空的音乐列表
 
 **注意事项:**
