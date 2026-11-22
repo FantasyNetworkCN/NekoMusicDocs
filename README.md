@@ -405,7 +405,8 @@ Content-Type: multipart/form-data
 - `duration`: 音乐时长，单位秒（必填）
 - `uploadUserId`: 上传用户ID（必填）
 - `musicFile`: 音乐文件（必填，multipart/form-data）
-  - 支持格式：MP3、FLAC、WAV
+  - 支持格式：MP3、FLAC、WAV、M4A/M4B/MP4（纯音频）、AAC、OGG/Vorbis、Opus、APE、WMA、AIFF、AC-3、E-AC-3、TrueHD、MLP、MKA/MKV（纯音频）、WebM（纯音频）、DTS、WavPack、CAF
+  - 带实际视频轨的文件会被拒绝；服务端会按实际容器规范化保存扩展名
 - `coverFile`: 封面图片文件（可选，multipart/form-data）
   - 支持格式：jpg, jpeg, png, gif, webp, bmp
 - `lyricsFile`: 歌词文件（可选，multipart/form-data）
@@ -473,13 +474,14 @@ Content-Type: multipart/form-data
 - 管理员审核通过后，音乐会正式添加到音乐库；审核结束（通过或未通过）会给上传者写一条站内消息（`type` 为 `upload_approved` / `upload_rejected`，见「站内消息」），同时发送邮件通知
 - 系统会自动检查是否有重复的音乐（相同的标题、歌手、专辑）
 - 如果没有上传歌词文件，系统会自动创建一个空的歌词文件（no_lrc.lrc）
-- 上传的文件会保存在 `user_upload/` 目录下，文件名格式为 `music_<timestamp>.<ext>`
+- 上传的文件会保存在 `user_upload/` 目录下，文件名格式为 `music_<timestamp>.<ext>`；正式入库后会迁移为曲库实际格式
 
 **注意事项:**
 - 标题、歌手、语言为必填项
-- 音乐文件必须提供，且必须是MP3、FLAC或WAV格式
-- 音乐时长需要用户手动输入或通过前端解析后传入
+- 音乐文件必须提供，且必须是受支持的纯音频格式
+- 音乐时长可以手动输入；传 `0` 或留空时由服务端使用 FFmpeg 读取
 - 封面和歌词文件是可选的
+- 不支持写入内嵌标签的容器会使用站内独立封面文件，歌词仍保存在歌词库中
 - 上传成功后，用户需要等待管理员审核才能在音乐库中看到上传的音乐
 
 **前端集成示例:**
@@ -2729,7 +2731,7 @@ async function getMusicRanking() {
   - id, title, artist, album, duration
   - language: 语言
   - tags: 标签
-  - fileFormat: 音频文件格式（mp3/flac/wav）
+  - fileFormat: 音频文件格式（服务端规范化后的实际格式，如 mp3、flac、m4a、aac、ogg、opus、eac3、thd、ape、wma、aiff、mka）
   - maxQuality: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires` / `dolby`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
   - createdAt: 创建时间（Unix 时间戳，毫秒）
 
