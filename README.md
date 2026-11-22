@@ -2282,7 +2282,7 @@ Authorization: <token>        # 可选
 
 **端点:** `GET /api/music/file/{id}`
 
-**请求头:** 普通播放无需登录；启用人声 / 伴奏分离时必须携带
+**请求头:** 普通播放无需登录；启用人声 / 伴奏codex时必须携带
 `Authorization: Bearer <token>`。建议所有请求携带标准 `User-Agent`。
 
 **路径参数:**
