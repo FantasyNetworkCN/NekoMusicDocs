@@ -2241,6 +2241,7 @@ Authorization: <token>        # 可选
     "updatedAt": "2024-01-02 12:00:00.0",
     "maxQuality": "sq",
     "favoriteCount": 12,
+    "playable": true,
     "lyricsFormat": "neko-v1",
     "lyrics": "[00:00.00]歌词内容",
     "lyricsRich": {
@@ -2269,6 +2270,7 @@ Authorization: <token>        # 可选
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `favoriteCount` | number | 收藏该曲目的用户数，无人收藏时为 `0` |
+| `playable` | boolean | 当前请求身份下是否允许播放；禁播曲目返回 `false`，管理员及以上按服务端权限可能返回 `true`。禁播不会删除收藏或歌单数据 |
 | `lyricsFormat` | string | 歌词存储格式；普通歌词为 `lrc`，含字级时间轴时为 `neko-v1`。日语歌曲在歌词写入或更新后会统一为 `neko-v1` |
 | `lyrics` | string | 兼容用 LRC 歌词；没有歌词时为空字符串。`neko-v1` 会同时转换成该字段 |
 | `lyricsRich` | object \| null | `neko-v1` 字级歌词；普通 LRC 或无歌词时为 `null`。日语歌曲在歌词写入或更新后，有效歌词不为 `null` |
