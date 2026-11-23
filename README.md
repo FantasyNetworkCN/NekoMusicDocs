@@ -1656,6 +1656,7 @@ Authorization: <token>
       "fileFormat": "mp3",
       "language": "中文",
       "maxQuality": "sq",
+      "playable": true,
       "position": 1,
       "addedAt": "2026-01-29 12:00:00"
     }
@@ -1675,6 +1676,7 @@ Authorization: <token>
 - 音乐列表按照 `position` 字段升序排列
 - 返回的音乐信息包含完整的歌曲详情和添加时间
 - `maxQuality`: 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires` / `dolby`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）
+- `playable`: 当前请求身份下是否允许播放。禁播曲目不会被自动移出歌单；返回 `false` 时客户端必须置灰，并禁止播放、下载或转存
 - 此 API **无需登录**即可访问（后端已移除 token 验证）
 - 任何用户（包括未登录用户）都可以查看歌单内容
 
@@ -2078,6 +2080,7 @@ Authorization: <token>        # 可选
 - 站内无合格结果时会尝试补充查找外部曲库，但只有达到同等相关度门槛的候选才会返回；没有合格候选时 `results` 为 `null`
 - **按歌曲 ID 搜索**：`query` 是一串纯数字（如 `148`，即详情页地址 `/detail/148` 里的编号）时，先按歌曲 ID 精确匹配；命中则只返回这一首，不再做歌名 / 歌手 / 歌词模糊匹配，未命中则按上面的模糊搜索规则继续处理
 - 只有整串都是半角数字、且首位不为 `0` 时才按 ID 处理：`148 晴天`、`2024-01-01`、`007`、全角数字等输入仍走模糊搜索
+- 被设置为禁播的曲目仍会出现在搜索结果中，但返回 `playable: false`；客户端必须置灰并禁止发起播放、下载或转存
 - 无匹配时 `results` 为 `null`，不会用不相关歌曲填充结果
 
 **按歌曲 ID 搜索:**
@@ -2105,6 +2108,7 @@ Authorization: <token>        # 可选
       "uploadUserId": 0,
       "createdAt": "2024-01-01 12:00:00.0",
       "maxQuality": "sq",
+      "playable": true,
       "lrc": true
     }
   ]
@@ -2158,7 +2162,8 @@ Authorization: <token>        # 可选
       "duration": 269,
       "uploadUserId": 0,
       "createdAt": "2024-01-01 12:00:00.0",
-      "maxQuality": "sq"
+      "maxQuality": "sq",
+      "playable": true
     },
     null,
     {
@@ -2169,7 +2174,8 @@ Authorization: <token>        # 可选
       "duration": 200,
       "uploadUserId": 0,
       "createdAt": "2026-05-24 10:00:00.0",
-      "maxQuality": "hires"
+      "maxQuality": "hires",
+      "playable": false
     }
   ]
 }
@@ -2196,6 +2202,7 @@ Authorization: <token>        # 可选
 | `uploadUserId` | number | 上传用户 ID，无则为 0 |
 | `createdAt` | string | 入库时间 |
 | `maxQuality` | string \| null | 该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires` / `dolby`；尚未探测过时为 `null`（客户端按 `hq` 兜底即可）。与 `GET /api/music/info/{id}` 的 `maxQuality` 同义 |
+| `playable` | boolean | 当前请求身份下是否允许播放。`false` 时客户端必须置灰并禁止播放、下载或转存；管理员及以上角色可返回 `true` |
 
 **资源 URL（由客户端按 `id` 拼接，响应中不再返回路径字段）:**
 - 音频：`GET /api/music/file/{id}`
@@ -2285,7 +2292,8 @@ Authorization: <token>        # 可选
 **端点:** `GET /api/music/file/{id}`
 
 **请求头:** 普通播放无需登录；启用人声 / 伴奏codex时必须携带
-`Authorization: Bearer <token>`。建议所有请求携带标准 `User-Agent`。
+`Authorization: Bearer <token>`。建议所有请求携带标准 `User-Agent`。如果曲目已被设置为禁播，
+普通调用者会收到 `403`，不会拿到任何媒体地址；具备更高权限的账号仍可正常取得播放地址。
 
 **路径参数:**
 - `id`: 音乐 ID
@@ -2319,6 +2327,8 @@ Authorization: Bearer <token>
 - 请求的音质高于歌曲实际最高音质时，返回歌曲原始最高音质。
 - 未传 `quality` 时按 `hq` 请求；歌曲不支持 `hq` 时返回 `standard` 或原始音源。
 - `separate=1` 仅对有效 VIP 用户开放。分离结果统一为 320 kbps MP3，`quality` 不改变该模式下的输出格式。
+- 曲目被设置为禁播时，普通调用者不会收到原始重定向媒体地址；客户端应依据搜索或歌单返回的
+  `playable: false` 直接置灰，不要继续请求播放地址。
 
 **响应示例（成功）:**
 
@@ -2371,7 +2381,7 @@ Authorization: Bearer <token>
 | `200` | 获取播放地址成功 |
 | `400` | 音乐 ID 或 `separate` 参数无效 |
 | `401` | 启用分离但未登录 |
-| `403` | 启用分离但当前账号不是有效 VIP |
+| `403` | 曲目已禁播且当前账号无豁免权限；启用分离但当前账号不是有效 VIP |
 | `404` | 音乐或音频文件不存在 |
 | `500` | 人声 / 伴奏分离处理失败 |
 | `503` | 人声 / 伴奏分离任务繁忙或服务暂不可用 |
@@ -4589,7 +4599,8 @@ Content-Type: application/json
         "duration": 298,
         "fileFormat": "mp3",
         "language": "中文",
-        "maxQuality": "sq"
+        "maxQuality": "sq",
+        "playable": true
       },
       {
         "id": 2,
@@ -4599,7 +4610,8 @@ Content-Type: application/json
         "duration": 269,
         "fileFormat": "mp3",
         "language": "中文",
-        "maxQuality": "hires"
+        "maxQuality": "hires",
+        "playable": false
       }
     ]
   }
@@ -4628,6 +4640,7 @@ Content-Type: application/json
   - 该歌手的音乐数量（musicCount）
   - 该歌手的所有音乐列表（musicList），包含完整的音乐信息
   - musicList 每项含 `maxQuality`：该曲支持的最高音质，可选 `standard` / `hq` / `sq` / `hires` / `dolby`；尚未探测过时为 `null`
+  - musicList 每项含 `playable`：当前请求身份下是否允许播放；禁播曲目仍会返回，但客户端必须置灰并禁止播放、下载或转存
 - 如果没有找到匹配的歌手，返回空的歌手信息和空的音乐列表
 
 **注意事项:**
