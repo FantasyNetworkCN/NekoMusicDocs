@@ -2,7 +2,7 @@
 
 ### 使用本 API 需遵守本项目 LICENSE 协议，必须开源并保留 Neko歌姬计划 署名及源码链接！
 
-#### 更新时间 2026年11月22日
+#### 更新时间 2026年11月23日
 ## 概述
 
 Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用户认证、收藏、横屏分享视频生成等功能。所有 API 都基于 HTTP/HTTPS 协议，使用 JSON 格式进行数据交换。
@@ -15,6 +15,7 @@ Neko歌姬计划提供完整的 RESTful API，支持音乐搜索、播放、用�
 
 - [认证说明](#认证说明)
 - [响应文案语言](#响应文案语言)
+- [服务端开源合规](#服务端开源合规)
 - [用户相关 API](#用户相关-api)
 - [NekoAuth 统一登录（服务端）](#24-nekoauth-统一登录服务端)
 - [提交歌词报错](#25-提交歌词报错)
@@ -65,6 +66,69 @@ Accept-Language: zh-CN,zh;q=0.9
 - 例外：公开共享缓存接口 `GET /api/music/latest`、`GET /api/music/ranking` 的 `message` 固定为
   简体中文（这两条响应声明为 `public` 缓存，不按语言拆分缓存副本）。客户端不应依赖这两句文案。
 - 错误分支请依据 HTTP 状态码与 `success` 判断，不要匹配 `message` 文案。
+
+---
+
+## 服务端开源合规
+
+Android 与 PC 客户端允许在设置页切换“音乐连接源”。目标服务必须继续提供与本文档相同的 API，
+并在基础 URL 下公开 AGPL 来源清单；客户端切换前会读取该清单并确认源码地址可访问。
+
+### 1. 获取 AGPL 来源清单
+
+**端点:** `GET /.well-known/nekomusic-source.json`
+
+**请求头:**
+
+- 无需登录。
+- `Accept: application/json`
+
+**响应示例（成功）**
+
+```json
+{
+  "success": true,
+  "data": {
+    "schema": "nekomusic-agpl-source/v1",
+    "project": "NekoMusic",
+    "license": "AGPL-3.0-only",
+    "sourceUrl": "https://github.com/FantasyNetworkCN/NekoMusic",
+    "licenseUrl": "https://www.gnu.org/licenses/agpl-3.0.html",
+    "apiProtocol": 1
+  }
+}
+```
+
+**字段说明:**
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `schema` | string | 固定为 `nekomusic-agpl-source/v1` |
+| `project` | string | 固定为 `NekoMusic` |
+| `license` | string | 固定为 `AGPL-3.0-only` |
+| `sourceUrl` | string | 当前服务对应的公开源码地址，必须可通过 HTTPS 访问 |
+| `licenseUrl` | string | AGPL v3 许可证文本地址 |
+| `apiProtocol` | integer | 当前客户端协议版本，固定为 `1` |
+
+**响应示例（失败/未提供）**
+
+```json
+{
+  "success": false,
+  "message": "Not Found"
+}
+```
+
+**状态码:**
+
+- `200`：清单存在且可解析。
+- `404`：目标服务未提供清单，客户端不得切换。
+- `5xx`：目标服务暂时不可用，客户端不得切换。
+
+**缓存:** 响应使用 `Cache-Control: public, max-age=1800`。
+
+> 自建部署如果修改了服务端代码，必须把 `sourceUrl` 指向实际运行版本的公开源码仓库，
+> 不能只指向未包含自身修改的上游仓库。
 
 ---
 
