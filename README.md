@@ -76,7 +76,9 @@ Android 与 PC 客户端允许在设置页切换“音乐连接源”。目标�
 
 ### 1. 获取 AGPL 来源清单
 
-**端点:** `GET /.well-known/nekomusic-source.json`
+**端点:** `GET /api/music/source`
+
+兼容旧地址：`GET /.well-known/nekomusic-source.json`。客户端优先使用 `/api/music/source`。
 
 **请求头:**
 
@@ -125,7 +127,7 @@ Android 与 PC 客户端允许在设置页切换“音乐连接源”。目标�
 - `404`：目标服务未提供清单，客户端不得切换。
 - `5xx`：目标服务暂时不可用，客户端不得切换。
 
-**缓存:** 响应使用 `Cache-Control: public, max-age=1800`。
+**缓存:** 响应使用 `Cache-Control: public, max-age=60, must-revalidate`。
 
 > 自建部署如果修改了服务端代码，必须把 `sourceUrl` 指向实际运行版本的公开源码仓库，
 > 不能只指向未包含自身修改的上游仓库。
