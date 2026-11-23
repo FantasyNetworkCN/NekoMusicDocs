@@ -108,7 +108,7 @@ Android 与 PC 客户端允许在设置页切换“音乐连接源”。目标�
 | `schema` | string | 固定为 `nekomusic-agpl-source/v1` |
 | `project` | string | 固定为 `NekoMusic` |
 | `license` | string | 固定为 `AGPL-3.0-only` |
-| `sourceUrl` | string | 当前服务对应的公开源码地址，必须可通过 HTTPS 访问 |
+| `sourceUrl` | string | 当前服务对应的公开 GitHub 仓库根地址；客户端会定期调用 GitHub API 核验公开状态与 AGPL 许可证 |
 | `licenseUrl` | string | AGPL v3 许可证文本地址 |
 | `apiProtocol` | integer | 当前客户端协议版本，固定为 `1` |
 
@@ -129,8 +129,9 @@ Android 与 PC 客户端允许在设置页切换“音乐连接源”。目标�
 
 **缓存:** 响应使用 `Cache-Control: public, max-age=60, must-revalidate`。
 
-> 自建部署如果修改了服务端代码，必须把 `sourceUrl` 指向实际运行版本的公开源码仓库，
-> 不能只指向未包含自身修改的上游仓库。
+> 自建部署如果修改了服务端代码，必须把 `sourceUrl` 指向实际运行版本的公开 GitHub 仓库，
+> 不能只指向未包含自身修改的上游仓库。非官方连接源会让客户端持续复核，任一检查失败都会
+> 自动退回官方连接源并清除该非官方源的登录态。
 
 ---
 
