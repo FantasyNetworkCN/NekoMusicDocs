@@ -94,7 +94,7 @@ Android 与 PC 客户端允许在设置页切换“音乐连接源”。目标�
     "schema": "nekomusic-agpl-source/v1",
     "project": "NekoMusic",
     "license": "AGPL-3.0-only",
-    "sourceUrl": "https://github.com/FantasyNetworkCN/NekoMusic",
+    "sourceUrl": "https://github.com/example/nekomusic",
     "licenseUrl": "https://www.gnu.org/licenses/agpl-3.0.html",
     "apiProtocol": 1
   }
@@ -108,7 +108,7 @@ Android 与 PC 客户端允许在设置页切换“音乐连接源”。目标�
 | `schema` | string | 固定为 `nekomusic-agpl-source/v1` |
 | `project` | string | 固定为 `NekoMusic` |
 | `license` | string | 固定为 `AGPL-3.0-only` |
-| `sourceUrl` | string | 当前服务对应的公开 GitHub 仓库根地址；客户端会定期调用 GitHub API 核验公开状态与 AGPL 许可证 |
+| `sourceUrl` | string | 当前服务对应的公开 GitHub 仓库根地址；默认留空，由服务端管理员配置。为空或非 GitHub 仓库时客户端拒绝切换 |
 | `licenseUrl` | string | AGPL v3 许可证文本地址 |
 | `apiProtocol` | integer | 当前客户端协议版本，固定为 `1` |
 
